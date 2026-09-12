@@ -1,0 +1,390 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --color-obsidian: #0D0B12;
+  --color-obsidian-surface: #120E20;
+  --color-obsidian-elevated: #18132B;
+  --color-deep-purple: #5B21B6;
+  --color-primary-violet: #7C3AED;
+  --color-electric-purple: #A855F7;
+  --color-soft-lavender: #C4B5FD;
+  --color-offwhite: #F8F7FA;
+}
+
+/* ==========================================================================
+   ROVELA CENTRALIZED SEMANTIC DESIGN TOKENS
+   Guarantees:
+   - Light Mode: Dark text (#0D0B12 / #475569) on light/off-white surfaces
+   - Dark Mode: Light text (#FFFFFF / #CBD5E1) on obsidian surfaces
+   - Accessible Status scale across both modes (> 4.5:1 ratio)
+   ========================================================================== */
+
+:root {
+  /* Core Surface Tokens (Light Mode) */
+  --background: #F8F7FA;
+  --surface: #FFFFFF;
+  --surface-secondary: #F1F5F9;
+  --surface-elevated: #FFFFFF;
+  --surface-glass: rgba(255, 255, 255, 0.94);
+  --surface-hover: rgba(15, 23, 42, 0.04);
+  --surface-active: rgba(124, 58, 237, 0.12);
+
+  /* Core Text Tokens (Light Mode) */
+  --text-primary: #0D0B12;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+  --text-disabled: #94A3B8;
+
+  /* Borders (Light Mode) */
+  --border: #E2E8F0;
+  --border-subtle: #F1F5F9;
+
+  /* Brand Accents */
+  --brand-primary: #7C3AED;
+  --brand-secondary: #5B21B6;
+  --brand-glow: #A855F7;
+  --brand-soft: #C4B5FD;
+  --brand-active: #7C3AED;
+
+  /* Semantic Status Scale (Light Mode: guaranteed accessible dark text on pastel) */
+  --status-success-bg: #DCFCE7;
+  --status-success-text: #14532D;
+  --status-success-border: #86EFAC;
+  --status-success-icon: #15803D;
+
+  --status-warning-bg: #FEF3C7;
+  --status-warning-text: #78350F;
+  --status-warning-border: #FDE68A;
+  --status-warning-icon: #B45309;
+
+  --status-danger-bg: #FEE2E2;
+  --status-danger-text: #7F1D1D;
+  --status-danger-border: #FCA5A5;
+  --status-danger-icon: #DC2626;
+
+  --status-info-bg: #E0E7FF;
+  --status-info-text: #312E81;
+  --status-info-border: #A5B4FC;
+  --status-info-icon: #4F46E5;
+
+  /* Aliased Rovela Design Tokens */
+  --rovela-bg: var(--background);
+  --rovela-surface: var(--surface);
+  --rovela-surface-secondary: var(--surface-secondary);
+  --rovela-surface-elevated: var(--surface-elevated);
+  --rovela-surface-glass: var(--surface-glass);
+  --rovela-surface-hover: var(--surface-hover);
+  --rovela-surface-active: var(--surface-active);
+
+  --rovela-text-primary: var(--text-primary);
+  --rovela-text-secondary: var(--text-secondary);
+  --rovela-text-muted: var(--text-muted);
+  --rovela-text-disabled: var(--text-disabled);
+
+  --rovela-border: var(--border);
+  --rovela-border-subtle: var(--border-subtle);
+
+  --rovela-brand-primary: var(--brand-primary);
+  --rovela-brand-secondary: var(--brand-secondary);
+  --rovela-brand-glow: var(--brand-glow);
+  --rovela-brand-soft: var(--brand-soft);
+  --rovela-brand-active: var(--brand-active);
+
+  --rovela-input-bg: #FFFFFF;
+  --rovela-input-text: #0D0B12;
+  --rovela-input-placeholder: #64748B;
+  --rovela-input-border: #CBD5E1;
+
+  --rovela-msg-incoming-bg: #F1F5F9;
+  --rovela-msg-incoming-text: #0D0B12;
+  --rovela-msg-incoming-subtext: #475569;
+  --rovela-msg-outgoing-bg: linear-gradient(135deg, #7C3AED 0%, #9333EA 50%, #6366F1 100%);
+  --rovela-msg-outgoing-text: #FFFFFF;
+  --rovela-msg-outgoing-subtext: rgba(255, 255, 255, 0.88);
+}
+
+.dark {
+  /* Core Surface Tokens (Dark Mode) */
+  --background: #0D0B12;
+  --surface: #130F22;
+  --surface-secondary: #1A152E;
+  --surface-elevated: #211B3A;
+  --surface-glass: rgba(19, 15, 34, 0.92);
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --surface-active: rgba(124, 58, 237, 0.25);
+
+  /* Core Text Tokens (Dark Mode) */
+  --text-primary: #FFFFFF;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --text-disabled: #64748B;
+
+  /* Borders (Dark Mode) */
+  --border: rgba(255, 255, 255, 0.10);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+
+  /* Brand Accents */
+  --brand-primary: #7C3AED;
+  --brand-secondary: #5B21B6;
+  --brand-glow: #A855F7;
+  --brand-soft: #C4B5FD;
+  --brand-active: #A855F7;
+
+  /* Semantic Status Scale (Dark Mode: luminous high-contrast text on dark translucent) */
+  --status-success-bg: rgba(34, 197, 94, 0.18);
+  --status-success-text: #4ADE80;
+  --status-success-border: rgba(74, 222, 128, 0.35);
+  --status-success-icon: #22C55E;
+
+  --status-warning-bg: rgba(245, 158, 11, 0.18);
+  --status-warning-text: #FCD34D;
+  --status-warning-border: rgba(251, 191, 36, 0.35);
+  --status-warning-icon: #F59E0B;
+
+  --status-danger-bg: rgba(239, 68, 68, 0.18);
+  --status-danger-text: #FCA5A5;
+  --status-danger-border: rgba(248, 113, 113, 0.35);
+  --status-danger-icon: #EF4444;
+
+  --status-info-bg: rgba(99, 102, 241, 0.18);
+  --status-info-text: #A5B4FC;
+  --status-info-border: rgba(129, 140, 248, 0.35);
+  --status-info-icon: #818CF8;
+
+  /* Aliased Rovela Design Tokens */
+  --rovela-bg: var(--background);
+  --rovela-surface: var(--surface);
+  --rovela-surface-secondary: var(--surface-secondary);
+  --rovela-surface-elevated: var(--surface-elevated);
+  --rovela-surface-glass: var(--surface-glass);
+  --rovela-surface-hover: var(--surface-hover);
+  --rovela-surface-active: var(--surface-active);
+
+  --rovela-text-primary: var(--text-primary);
+  --rovela-text-secondary: var(--text-secondary);
+  --rovela-text-muted: var(--text-muted);
+  --rovela-text-disabled: var(--text-disabled);
+
+  --rovela-border: var(--border);
+  --rovela-border-subtle: var(--border-subtle);
+
+  --rovela-brand-primary: var(--brand-primary);
+  --rovela-brand-secondary: var(--brand-secondary);
+  --rovela-brand-glow: var(--brand-glow);
+  --rovela-brand-soft: var(--brand-soft);
+  --rovela-brand-active: var(--brand-active);
+
+  --rovela-input-bg: rgba(26, 21, 46, 0.85);
+  --rovela-input-text: #FFFFFF;
+  --rovela-input-placeholder: #94A3B8;
+  --rovela-input-border: rgba(255, 255, 255, 0.14);
+
+  --rovela-msg-incoming-bg: rgba(26, 21, 46, 0.95);
+  --rovela-msg-incoming-text: #F8FAFC;
+  --rovela-msg-incoming-subtext: #94A3B8;
+  --rovela-msg-outgoing-bg: linear-gradient(135deg, #7C3AED 0%, #9333EA 50%, #6366F1 100%);
+  --rovela-msg-outgoing-text: #FFFFFF;
+  --rovela-msg-outgoing-subtext: rgba(255, 255, 255, 0.88);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  body {
+    background-color: var(--rovela-bg);
+    color: var(--rovela-text-primary);
+    overflow-x: hidden;
+  }
+}
+
+/* ==========================================================================
+   SEMANTIC TOKEN HELPER CLASSES
+   ========================================================================== */
+.bg-rovela-base {
+  background-color: var(--rovela-bg);
+}
+
+.bg-rovela-surface {
+  background-color: var(--rovela-surface);
+}
+
+.bg-rovela-surface-sec {
+  background-color: var(--rovela-surface-secondary);
+}
+
+.bg-rovela-surface-elevated {
+  background-color: var(--rovela-surface-elevated);
+}
+
+.text-rovela-primary {
+  color: var(--rovela-text-primary);
+}
+
+.text-rovela-secondary {
+  color: var(--rovela-text-secondary);
+}
+
+.text-rovela-muted {
+  color: var(--rovela-text-muted);
+}
+
+.border-rovela {
+  border-color: var(--rovela-border);
+}
+
+.border-rovela-subtle {
+  border-color: var(--rovela-border-subtle);
+}
+
+/* Accessible Status Badges */
+.status-pill-success {
+  background-color: var(--status-success-bg);
+  color: var(--status-success-text);
+  border: 1px solid var(--status-success-border);
+}
+
+.status-pill-warning {
+  background-color: var(--status-warning-bg);
+  color: var(--status-warning-text);
+  border: 1px solid var(--status-warning-border);
+}
+
+.status-pill-danger {
+  background-color: var(--status-danger-bg);
+  color: var(--status-danger-text);
+  border: 1px solid var(--status-danger-border);
+}
+
+.status-pill-info {
+  background-color: var(--status-info-bg);
+  color: var(--status-info-text);
+  border: 1px solid var(--status-info-border);
+}
+
+/* ==========================================================================
+   ROVELA HIGH-CONTRAST LIQUID GLASS SYSTEM (Levels 1, 2, 3)
+   Engineered for maximum legibility, crystal-clear typography & depth
+   ========================================================================== */
+
+/* Glass Level 1 — Subtle (Navigation rails, filter tabs, secondary controls) */
+.glass-1-dark {
+  background-color: rgba(18, 14, 32, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+.glass-1-light {
+  background-color: rgba(241, 245, 249, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid #E2E8F0;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+}
+
+/* Glass Level 2 — Standard (Chat panels, cards, list items, conversation stream) */
+.glass-2-dark {
+  background-color: rgba(20, 16, 36, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 4px 20px -2px rgba(0, 0, 0, 0.5);
+}
+
+.glass-2-light {
+  background-color: #FFFFFF;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #E2E8F0;
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 1),
+    0 4px 16px -2px rgba(15, 23, 42, 0.06);
+}
+
+/* Glass Level 3 — Elevated (Modals, dropdowns, floating menus, call interfaces) */
+.glass-3-dark {
+  background-color: rgba(26, 20, 48, 0.98);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
+    0 20px 40px -10px rgba(0, 0, 0, 0.7),
+    0 0 20px 0 rgba(147, 51, 234, 0.12);
+}
+
+.glass-3-light {
+  background-color: #FFFFFF;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid #CBD5E1;
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 1),
+    0 20px 35px -8px rgba(15, 23, 42, 0.12),
+    0 0 16px 0 rgba(147, 51, 234, 0.06);
+}
+
+/* Custom Clean Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.45);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(147, 51, 234, 0.22);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(147, 51, 234, 0.45);
+}
+
+/* Waveform Bar Animation */
+@keyframes voiceWave {
+  0%, 100% {
+    height: 6px;
+  }
+  50% {
+    height: 24px;
+  }
+}
+
+.wave-bar {
+  animation: voiceWave 1.2s ease-in-out infinite;
+}
+
+/* Pulse animation for call and recording */
+@keyframes recordPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.8;
+  }
+}
+
+.record-pulse {
+  animation: recordPulse 1s ease-in-out infinite;
+}
