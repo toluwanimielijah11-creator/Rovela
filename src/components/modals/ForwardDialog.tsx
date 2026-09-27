@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Modal } from '../ui/Modal';
-import { Conversation } from '../../types';
+import { Message, Conversation } from '../../types';
 import { Avatar } from '../ui/Avatar';
 import { useChat } from '../../context/ChatContext';
 import { Search, Forward, Check, MessageSquare, Users } from 'lucide-react';
+import { formatMessagePreviewSnippet } from '../../utils/mediaUtils';
 
 interface ForwardDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  messageId: string;
+  messageId?: string;
+  message?: Message;
   messageSnippet?: string;
 }
 
@@ -16,11 +18,16 @@ export const ForwardDialog: React.FC<ForwardDialogProps> = ({
   isOpen,
   onClose,
   messageId,
+  message,
   messageSnippet,
 }) => {
   const { conversations, forwardMessage } = useChat();
   const [selectedConvIds, setSelectedConvIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
+
+  const targetMessageId = message?.id || messageId || '';
+  const snippet =
+    messageSnippet || (message ? formatMessagePreviewSnippet(message) : undefined);
 
   const activeConversations = conversations.filter((c) => !c.is_archived);
 
@@ -35,8 +42,8 @@ export const ForwardDialog: React.FC<ForwardDialogProps> = ({
   };
 
   const handleForward = () => {
-    if (selectedConvIds.length === 0) return;
-    forwardMessage(messageId, selectedConvIds);
+    if (selectedConvIds.length === 0 || !targetMessageId) return;
+    forwardMessage(targetMessageId, selectedConvIds);
     setSelectedConvIds([]);
     onClose();
   };
@@ -45,10 +52,10 @@ export const ForwardDialog: React.FC<ForwardDialogProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Forward Message" maxWidth="md">
       <div className="flex flex-col gap-4 select-none">
         {/* Message preview snippet */}
-        {messageSnippet && (
+        {snippet && (
           <div className="p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/30 text-xs text-slate-700 dark:text-slate-200 flex items-start gap-2.5">
             <Forward className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-            <p className="line-clamp-2 italic font-medium">{messageSnippet}</p>
+            <p className="line-clamp-2 italic font-medium">{snippet}</p>
           </div>
         )}
 

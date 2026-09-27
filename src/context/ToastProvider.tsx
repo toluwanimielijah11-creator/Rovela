@@ -20,12 +20,15 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   const dismissToast = useCallback(
     (id?: string) => {
       clearTimer();
-      setToast((current) => {
-        if (!id || (current && current.id === id)) {
-          return null;
-        }
-        return current;
-      });
+      // Schedule toast state update to avoid calling setState during another component's render
+      setTimeout(() => {
+        setToast((current) => {
+          if (!id || (current && current.id === id)) {
+            return null;
+          }
+          return current;
+        });
+      }, 0);
     },
     [clearTimer]
   );
@@ -46,8 +49,11 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         duration,
       };
 
-      // Enforce strictly ONE toast at a time: replaces active notification immediately
-      setToast(newToast);
+      // Enforce strictly ONE toast at a time: replaces active notification immediately.
+      // Scheduled asynchronously to prevent React render-cycle conflicts (e.g. setState in render).
+      setTimeout(() => {
+        setToast(newToast);
+      }, 0);
 
       timeoutRef.current = setTimeout(() => {
         setToast((current) => (current?.id === newToast.id ? null : current));

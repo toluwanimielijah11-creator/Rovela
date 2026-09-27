@@ -7,6 +7,8 @@ interface StatusCreationSheetProps {
   onSelectPhoto: (file: File) => void;
   onSelectVideo: (file: File) => void;
   onSelectText: () => void;
+  onSelectSamplePhoto?: (url: string) => void;
+  onSelectSampleVideo?: (url: string) => void;
 }
 
 export const StatusCreationSheet: React.FC<StatusCreationSheetProps> = ({
@@ -15,6 +17,8 @@ export const StatusCreationSheet: React.FC<StatusCreationSheetProps> = ({
   onSelectPhoto,
   onSelectVideo,
   onSelectText,
+  onSelectSamplePhoto,
+  onSelectSampleVideo,
 }) => {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -153,6 +157,38 @@ export const StatusCreationSheet: React.FC<StatusCreationSheetProps> = ({
                 </p>
               </div>
             </button>
+            {/* Quick Demo Preview Options for immediate testing */}
+            <div className="pt-2 border-t border-[var(--rovela-border)]/60">
+              <p className="text-[11px] font-semibold text-[var(--rovela-text-muted)] mb-2">
+                Quick preview presets:
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectSamplePhoto?.(
+                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1000&auto=format&fit=crop&q=80'
+                    );
+                    onClose();
+                  }}
+                  className="flex-1 py-2 px-3 rounded-xl bg-[var(--rovela-surface-hover)] hover:bg-purple-500/10 border border-[var(--rovela-border)] text-xs font-semibold text-[var(--rovela-text-primary)] transition-all cursor-pointer text-center"
+                >
+                  📷 Sample Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectSampleVideo?.(
+                      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
+                    );
+                    onClose();
+                  }}
+                  className="flex-1 py-2 px-3 rounded-xl bg-[var(--rovela-surface-hover)] hover:bg-purple-500/10 border border-[var(--rovela-border)] text-xs font-semibold text-[var(--rovela-text-primary)] transition-all cursor-pointer text-center"
+                >
+                  🎬 Sample Video
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Cancel button */}

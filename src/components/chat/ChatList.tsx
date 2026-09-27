@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useChat } from '../../context/ChatContext';
 import { ChatListItem } from './ChatListItem';
 import { Tabs, TabItem } from '../ui/Tabs';
+import { StatusStoriesBar } from '../status/StatusStoriesBar';
 import { EmptyState } from '../common/EmptyState';
 import { Avatar } from '../ui/Avatar';
 import { RovelaLogo } from '../ui/RovelaLogo';
@@ -25,6 +26,9 @@ import {
   FolderKanban,
   FileText,
   User,
+  Trash2,
+  BellOff,
+  Ban,
 } from 'lucide-react';
 
 interface ChatListProps {
@@ -41,6 +45,11 @@ export const ChatList: React.FC<ChatListProps> = ({
     activeConversationId,
     setActiveConversationId,
     markConversationAsRead,
+    togglePinConversation,
+    toggleArchiveConversation,
+    toggleMuteConversation,
+    clearChatMessages,
+    blockUser,
     chatFilter,
     setChatFilter,
     searchQuery,
@@ -50,8 +59,11 @@ export const ChatList: React.FC<ChatListProps> = ({
     currentUser,
     users,
     showToast,
+    openStatusTextEditor,
+    createDirectConversation,
   } = useChat();
 
+  const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(new Set());
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchCategory, setSearchCategory] = useState<
     'all' | 'people' | 'messages' | 'groups' | 'files' | 'conversations'
@@ -62,6 +74,75 @@ export const ChatList: React.FC<ChatListProps> = ({
   const headerMenuRef = useRef<HTMLDivElement>(null);
   const fabMenuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleToggleSelectChat = (id: string) => {
+    setSelectedChatIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleStartSelectChat = (id: string) => {
+    setSelectedChatIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
+
+  const handleClearSelection = () => {
+    setSelectedChatIds(new Set());
+  };
+
+  const handlePinSelected = () => {
+    selectedChatIds.forEach((id) => togglePinConversation(id));
+    showToast(`${selectedChatIds.size} chat${selectedChatIds.size > 1 ? 's' : ''} updated`);
+    handleClearSelection();
+  };
+
+  const handleArchiveSelected = () => {
+    selectedChatIds.forEach((id) => toggleArchiveConversation(id));
+    showToast(`${selectedChatIds.size} chat${selectedChatIds.size > 1 ? 's' : ''} archived`);
+    handleClearSelection();
+  };
+
+  const handleMuteSelected = () => {
+    selectedChatIds.forEach((id) => toggleMuteConversation(id));
+    showToast(`${selectedChatIds.size} chat${selectedChatIds.size > 1 ? 's' : ''} muted/unmuted`);
+    handleClearSelection();
+  };
+
+  const handleMarkReadSelected = () => {
+    selectedChatIds.forEach((id) => markConversationAsRead(id));
+    showToast(`${selectedChatIds.size} chat${selectedChatIds.size > 1 ? 's' : ''} marked as read`);
+    handleClearSelection();
+  };
+
+  const handleClearSelected = () => {
+    selectedChatIds.forEach((id) => clearChatMessages(id));
+    showToast(`${selectedChatIds.size} chat${selectedChatIds.size > 1 ? 's' : ''} cleared`);
+    handleClearSelection();
+  };
+
+  const handleBlockSelected = () => {
+    if (selectedChatIds.size === 1) {
+      const id = Array.from(selectedChatIds)[0];
+      const conv = conversations.find((c) => c.id === id);
+      if (conv && conv.type === 'direct') {
+        const partnerId = conv.participant_ids.find((pid) => pid !== currentUser.id);
+        if (partnerId) {
+          blockUser(partnerId);
+          showToast('User blocked');
+        }
+      }
+    }
+    handleClearSelection();
+  };
 
   // Close menus on outside click
   useEffect(() => {
@@ -168,10 +249,80 @@ export const ChatList: React.FC<ChatListProps> = ({
   return (
     <div className="relative flex flex-col h-full bg-[var(--rovela-surface)] backdrop-blur-md select-none border-r border-[var(--rovela-border)]">
       {/* ========================================================================= */}
-      {/* 4. CHAT SCREEN TOP HEADER / 5. CHAT SEARCH                                */}
+      {/* 4. CHAT SCREEN TOP HEADER / SELECTION BAR / 5. CHAT SEARCH                */}
       {/* ========================================================================= */}
       <div className="p-4 sm:p-4.5 pb-2 flex flex-col gap-2.5">
-        {isSearchActive ? (
+        {selectedChatIds.size > 0 ? (
+          /* Selection Action Bar */
+          <div className="flex items-center justify-between py-1.5 px-2 bg-purple-500/10 rounded-2xl border border-purple-500/25 animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleClearSelection}
+                className="p-1.5 rounded-xl text-[var(--rovela-text-secondary)] hover:text-[var(--rovela-text-primary)] hover:bg-[var(--rovela-surface-hover)] cursor-pointer active:scale-95 transition-all"
+                title="Cancel selection"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-bold text-purple-600 dark:text-purple-300">
+                {selectedChatIds.size} selected
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handlePinSelected}
+                className="p-2 rounded-xl text-[var(--rovela-text-secondary)] hover:text-purple-600 dark:hover:text-purple-300 hover:bg-[var(--rovela-surface-hover)] cursor-pointer transition-all active:scale-95"
+                title="Pin / Unpin"
+              >
+                <Pin className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleArchiveSelected}
+                className="p-2 rounded-xl text-[var(--rovela-text-secondary)] hover:text-purple-600 dark:hover:text-purple-300 hover:bg-[var(--rovela-surface-hover)] cursor-pointer transition-all active:scale-95"
+                title="Archive"
+              >
+                <Archive className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleMuteSelected}
+                className="p-2 rounded-xl text-[var(--rovela-text-secondary)] hover:text-purple-600 dark:hover:text-purple-300 hover:bg-[var(--rovela-surface-hover)] cursor-pointer transition-all active:scale-95"
+                title="Mute / Unmute"
+              >
+                <BellOff className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleMarkReadSelected}
+                className="p-2 rounded-xl text-[var(--rovela-text-secondary)] hover:text-purple-600 dark:hover:text-purple-300 hover:bg-[var(--rovela-surface-hover)] cursor-pointer transition-all active:scale-95"
+                title="Mark as Read"
+              >
+                <CheckCheck className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleClearSelected}
+                className="p-2 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-500/10 cursor-pointer transition-all active:scale-95"
+                title="Clear messages"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              {selectedChatIds.size === 1 && (
+                <button
+                  type="button"
+                  onClick={handleBlockSelected}
+                  className="p-2 rounded-xl text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 cursor-pointer transition-all active:scale-95"
+                  title="Block contact"
+                >
+                  <Ban className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        ) : isSearchActive ? (
           /* 5. Expanded Chat Search Header */
           <div className="space-y-2.5 animate-in fade-in duration-150">
             <div className="flex items-center gap-2">
@@ -235,6 +386,39 @@ export const ChatList: React.FC<ChatListProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+        ) : chatFilter === 'archived' ? (
+          /* Dedicated Archived Chats Header with Back button */
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setChatFilter('all')}
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-[var(--rovela-text-secondary)] hover:text-[var(--rovela-text-primary)] hover:bg-[var(--rovela-surface-hover)] active:scale-90 transition-all cursor-pointer"
+                title="Back to all chats"
+                aria-label="Back to all chats"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h2 className="text-xl font-black tracking-tight text-[var(--rovela-text-primary)] flex items-center gap-2">
+                  <span>Archived Chats</span>
+                </h2>
+                <p className="text-[11px] font-medium text-purple-600 dark:text-purple-400">
+                  {filteredConversations.length} archived conversation{filteredConversations.length === 1 ? '' : 's'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsSearchActive(true)}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-[var(--rovela-text-secondary)] hover:text-purple-600 dark:hover:text-purple-300 hover:bg-[var(--rovela-surface-hover)] active:scale-90 transition-all cursor-pointer"
+              aria-label="Search archived"
+              title="Search"
+            >
+              <Search className="w-5 h-5" />
+            </button>
           </div>
         ) : (
           /* 4. Normal Top Header: Left: Rovela (with avatar shortcut), Right: Search, More */
@@ -359,6 +543,13 @@ export const ChatList: React.FC<ChatListProps> = ({
         )}
       </div>
 
+      {/* Prominent Status Entry (Stories Bar): My Status / Add Status + Recent Updates */}
+      {!isSearchActive && chatFilter !== 'archived' && (
+        <div className="shrink-0">
+          <StatusStoriesBar onAddStatus={openStatusTextEditor} />
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* 6. CHAT LIST STREAM / CATEGORIZED SEARCH RESULTS                           */}
       {/* ========================================================================= */}
@@ -374,7 +565,10 @@ export const ChatList: React.FC<ChatListProps> = ({
                 <div
                   key={person.id}
                   onClick={() => {
-                    onOpenNewChat();
+                    const convId = createDirectConversation(person.id);
+                    setActiveConversationId(convId);
+                    setIsSearchActive(false);
+                    setSearchQuery('');
                   }}
                   className="p-2.5 rounded-2xl hover:bg-[var(--rovela-surface-hover)] flex items-center justify-between cursor-pointer transition-colors"
                 >
@@ -443,6 +637,10 @@ export const ChatList: React.FC<ChatListProps> = ({
                 key={conv.id}
                 conversation={conv}
                 isActive={activeConversationId === conv.id}
+                isSelectionMode={selectedChatIds.size > 0}
+                isSelected={selectedChatIds.has(conv.id)}
+                onToggleSelect={() => handleToggleSelectChat(conv.id)}
+                onLongPress={() => handleStartSelectChat(conv.id)}
                 onClick={() => {
                   setActiveConversationId(conv.id);
                   if (conv.unread_count > 0) {

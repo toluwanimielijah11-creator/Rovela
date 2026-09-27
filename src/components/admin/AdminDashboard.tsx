@@ -1,426 +1,597 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useChat } from '../../context/ChatContext';
-import { Avatar } from '../ui/Avatar';
+import { useAdmin } from '../../context/AdminContext';
 import {
   ShieldAlert,
-  Users,
-  MessageSquare,
-  Layers,
   Activity,
+  Sliders,
+  Palette,
+  Globe,
+  Code,
+  DollarSign,
+  Shield,
+  Languages,
+  Menu as MenuIcon,
+  FileText,
+  Smartphone,
+  Users,
+  KeyRound,
+  Share2,
+  Megaphone,
+  Bell,
+  Mail,
+  AlertTriangle,
+  ArrowLeft,
   Search,
   CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  UserX,
-  UserCheck,
-  Server,
-  ArrowLeft,
-  Filter,
+  Layers,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  SlidersHorizontal,
 } from 'lucide-react';
+import { Tooltip } from '../ui/Tooltip';
+
+// Tab Components
+import { OverviewTab } from './tabs/OverviewTab';
+import { FeatureManagerTab } from './tabs/FeatureManagerTab';
+import { GlobalSetupTab } from './tabs/GlobalSetupTab';
+import { SeoSettingsTab } from './tabs/SeoSettingsTab';
+import { CustomScriptsTab } from './tabs/CustomScriptsTab';
+import { AdSenseManagerTab } from './tabs/AdSenseManagerTab';
+import { BruteForceTab } from './tabs/BruteForceTab';
+import { LanguagesTab } from './tabs/LanguagesTab';
+import { MenuManagerTab } from './tabs/MenuManagerTab';
+import { FormBuilderTab } from './tabs/FormBuilderTab';
+import { PwaSettingsTab } from './tabs/PwaSettingsTab';
+import { PagesManagerTab } from './tabs/PagesManagerTab';
+import { UsersManagementTab } from './tabs/UsersManagementTab';
+import { RoleManagementTab } from './tabs/RoleManagementTab';
+import { ReferralManagementTab } from './tabs/ReferralManagementTab';
+import { AnnouncementsTab } from './tabs/AnnouncementsTab';
+import { MassNotificationsTab } from './tabs/MassNotificationsTab';
+import { EmailSmtpTab } from './tabs/EmailSmtpTab';
+import { ModerationReportsTab } from './tabs/ModerationReportsTab';
+
+export type AdminTabId =
+  | 'overview'
+  | 'feature_manager'
+  | 'global_setup'
+  | 'seo'
+  | 'custom_scripts'
+  | 'adsense'
+  | 'brute_force'
+  | 'languages'
+  | 'menu_manager'
+  | 'form_builder'
+  | 'pwa'
+  | 'pages'
+  | 'users'
+  | 'roles'
+  | 'referrals'
+  | 'announcements'
+  | 'mass_notifications'
+  | 'smtp'
+  | 'reports';
+
+interface TabGroup {
+  name: string;
+  tabs: Array<{
+    id: AdminTabId;
+    label: string;
+    icon: any;
+    badge?: string;
+  }>;
+}
 
 export const AdminDashboard: React.FC = () => {
-  const {
-    adminMetrics,
-    reports,
-    updateReportStatus,
-    users,
-    suspendUser,
-    restoreUser,
-    conversations,
-    setActiveSection,
-    currentUser,
-  } = useChat();
+  const { setActiveSection, currentUser, reports, adminMetrics } = useChat();
+  const { globalSettings, features, impersonatingUser, activeAdminTab, setActiveAdminTab } = useAdmin();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'reports' | 'groups' | 'system'>('overview');
-  const [userSearch, setUserSearch] = useState('');
-  const [reportFilter, setReportFilter] = useState<'all' | 'pending' | 'reviewed' | 'dismissed'>('all');
+  const [tabSearch, setTabSearch] = useState('');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  const filteredUsers = users.filter((u) =>
-    u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-    u.username.toLowerCase().includes(userSearch.toLowerCase()) ||
-    u.email.toLowerCase().includes(userSearch.toLowerCase())
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const activeTab = activeAdminTab || 'overview';
+  const pendingReportsCount = reports.filter((r) => r.status === 'pending').length;
+
+  const tabGroups: TabGroup[] = [
+    {
+      name: 'Users',
+      tabs: [
+        { id: 'users', label: 'User Management', icon: Users },
+        { id: 'reports', label: 'Reports & Moderation', icon: AlertTriangle, badge: pendingReportsCount > 0 ? `${pendingReportsCount}` : undefined },
+        { id: 'roles', label: 'Role Permissions', icon: KeyRound },
+        { id: 'referrals', label: 'Referral Engine', icon: Share2 },
+      ],
+    },
+    {
+      name: 'Content',
+      tabs: [
+        { id: 'pages', label: 'Public Pages & Policies', icon: FileText },
+        { id: 'announcements', label: 'Announcements & Banners', icon: Megaphone },
+        { id: 'mass_notifications', label: 'Broadcast Notifications', icon: Bell },
+        { id: 'menu_manager', label: 'Menu & Footer Links', icon: MenuIcon },
+      ],
+    },
+    {
+      name: 'Platform',
+      tabs: [
+        { id: 'feature_manager', label: 'Feature Controls', icon: Sliders, badge: `${features.filter((f) => f.enabled).length} ON` },
+        { id: 'global_setup', label: 'System Settings', icon: Palette },
+        { id: 'form_builder', label: 'Registration Form Builder', icon: Layers, badge: '40+ Fields' },
+        { id: 'brute_force', label: 'Security & Rate Limits', icon: Shield },
+        { id: 'smtp', label: 'Email SMTP Relay', icon: Mail },
+        { id: 'pwa', label: 'PWA Web App Setup', icon: Smartphone },
+        { id: 'languages', label: 'Localization & Languages', icon: Languages },
+      ],
+    },
+    {
+      name: 'Analytics',
+      tabs: [
+        { id: 'overview', label: 'Platform Statistics & Usage', icon: Activity },
+      ],
+    },
+    {
+      name: 'SEO / Site',
+      tabs: [
+        { id: 'seo', label: 'Site Metadata & Crawlers', icon: Globe },
+        { id: 'custom_scripts', label: 'Custom Scripts & Tags', icon: Code },
+        { id: 'adsense', label: 'AdSense & Monetization', icon: DollarSign },
+      ],
+    },
+  ];
+
+  const allTabs = tabGroups.flatMap((g) => g.tabs);
+  const currentTabObj = allTabs.find((t) => t.id === activeTab);
+  const CurrentIcon = currentTabObj?.icon || ShieldAlert;
+
+  const filteredTabs = allTabs.filter((t) =>
+    t.label.toLowerCase().includes(tabSearch.toLowerCase())
   );
 
-  const filteredReports = reports.filter((r) =>
-    reportFilter === 'all' ? true : r.status === reportFilter
-  );
+  const toggleGroup = (groupName: string) => {
+    setCollapsedGroups((prev) => ({
+      ...prev,
+      [groupName]: !prev[groupName],
+    }));
+  };
 
-  const groups = conversations.filter((c) => c.type === 'group');
+  const areAllGroupsCollapsed = tabGroups.every((g) => !!collapsedGroups[g.name]);
+
+  const toggleAllGroups = () => {
+    if (areAllGroupsCollapsed) {
+      setCollapsedGroups({});
+    } else {
+      const next: Record<string, boolean> = {};
+      tabGroups.forEach((g) => {
+        next[g.name] = true;
+      });
+      setCollapsedGroups(next);
+    }
+  };
+
+  // Keyboard shortcut Ctrl+B or Cmd+B to toggle sidebar collapse
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        setIsSidebarCollapsed((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleSelectTab = (tabId: AdminTabId) => {
+    setActiveAdminTab(tabId);
+    setIsMobileMenuOpen(false);
+  };
+
+  const expandAndFocusSearch = () => {
+    setIsSidebarCollapsed(false);
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 50);
+  };
+
+  const renderActiveTabContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        return <OverviewTab />;
+      case 'feature_manager':
+        return <FeatureManagerTab />;
+      case 'global_setup':
+        return <GlobalSetupTab />;
+      case 'seo':
+        return <SeoSettingsTab />;
+      case 'custom_scripts':
+        return <CustomScriptsTab />;
+      case 'adsense':
+        return <AdSenseManagerTab />;
+      case 'brute_force':
+        return <BruteForceTab />;
+      case 'languages':
+        return <LanguagesTab />;
+      case 'menu_manager':
+        return <MenuManagerTab />;
+      case 'form_builder':
+        return <FormBuilderTab />;
+      case 'pwa':
+        return <PwaSettingsTab />;
+      case 'pages':
+        return <PagesManagerTab />;
+      case 'users':
+        return <UsersManagementTab />;
+      case 'roles':
+        return <RoleManagementTab />;
+      case 'referrals':
+        return <ReferralManagementTab />;
+      case 'announcements':
+        return <AnnouncementsTab />;
+      case 'mass_notifications':
+        return <MassNotificationsTab />;
+      case 'smtp':
+        return <EmailSmtpTab />;
+      case 'reports':
+        return <ModerationReportsTab />;
+      default:
+        return <OverviewTab />;
+    }
+  };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0E0A1A] text-slate-100 overflow-y-auto select-none">
+    <div className="flex-1 flex flex-col h-full bg-[#0E0A1A] text-slate-100 overflow-hidden select-none">
       {/* Top Admin Header Bar */}
-      <div className="p-6 border-b border-purple-500/20 bg-[#140F24] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-950/50">
+      <div className="p-3.5 sm:p-5 border-b border-purple-500/20 bg-[#140F24]/90 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Desktop Sidebar Toggle Button */}
+          <Tooltip
+            content={isSidebarCollapsed ? 'Expand navigation menu (Ctrl+B)' : 'Collapse navigation menu (Ctrl+B)'}
+            position="bottom"
+          >
+            <button
+              type="button"
+              onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+              className="hidden lg:flex items-center justify-center w-10 h-10 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 hover:text-white transition-all active:scale-95 cursor-pointer shrink-0"
+              aria-label={isSidebarCollapsed ? 'Expand admin menu' : 'Collapse admin menu'}
+            >
+              {isSidebarCollapsed ? (
+                <PanelLeftOpen className="w-5 h-5 text-purple-300" />
+              ) : (
+                <PanelLeftClose className="w-5 h-5 text-purple-300" />
+              )}
+            </button>
+          </Tooltip>
+
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white shrink-0">
             <ShieldAlert className="w-5 h-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-extrabold text-white tracking-tight">
-                Rovela Admin Console
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base sm:text-xl font-extrabold text-white tracking-tight truncate">
+                {globalSettings.siteName} Master Admin Suite
               </h2>
-              <span className="px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/40 text-purple-300 text-[10px] font-mono uppercase tracking-wider font-bold">
-                Role: {currentUser.role || 'Admin'}
+              <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-[10px] font-mono uppercase tracking-wider font-bold shrink-0">
+                Super Admin
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Platform administration, community moderation, and system telemetry.
+            <p className="text-[11px] sm:text-xs text-slate-400 truncate hidden sm:block">
+              Full-site layout management, feature hot-swapping, SEO, SMTP relay, and identity governance.
             </p>
           </div>
         </div>
 
-        {/* Back to Chat action */}
+        {/* Action Controls */}
+        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end shrink-0">
+          {/* Mobile Menu Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+            className="lg:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+            aria-label="Toggle admin modules menu"
+          >
+            <MenuIcon className="w-4 h-4" />
+            <span>{isMobileMenuOpen ? 'Hide Menu' : 'Modules'}</span>
+            {isMobileMenuOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection('more')}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-bold border border-white/10 transition-all active:scale-95 cursor-pointer ml-auto sm:ml-0"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Exit Admin Console</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Active Module Bar Indicator & Quick Toggle */}
+      <div className="lg:hidden flex items-center justify-between px-4 py-2 bg-[#120E22] border-b border-purple-500/20 text-xs shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-slate-400 text-[11px] font-medium">Active:</span>
+          <div className="flex items-center gap-1.5 text-white font-bold truncate">
+            <CurrentIcon className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+            <span className="truncate">{currentTabObj?.label || 'Overview'}</span>
+          </div>
+        </div>
         <button
           type="button"
-          onClick={() => setActiveSection('chats')}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-bold border border-white/10 transition-all active:scale-95 cursor-pointer"
+          onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-200 font-semibold text-[11px] shrink-0 border border-purple-500/20 transition-all cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Exit Admin View</span>
+          <span>{isMobileMenuOpen ? 'Collapse' : 'Switch Module'}</span>
+          {isMobileMenuOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
       </div>
 
-      {/* Admin Nav Tabs */}
-      <div className="px-6 border-b border-white/10 bg-[#120E22] flex gap-2 overflow-x-auto py-2.5">
-        {[
-          { id: 'overview', label: 'Platform Overview', icon: <Activity className="w-4 h-4" /> },
-          { id: 'reports', label: `Moderation Reports (${adminMetrics.pending_reports})`, icon: <AlertTriangle className="w-4 h-4 text-amber-400" /> },
-          { id: 'users', label: 'User Accounts', icon: <Users className="w-4 h-4" /> },
-          { id: 'groups', label: 'Channel Directory', icon: <Layers className="w-4 h-4" /> },
-          { id: 'system', label: 'System Health', icon: <Server className="w-4 h-4" /> },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === tab.id
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-950/40'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            {tab.icon}
-            <span>{tab.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Contents */}
-      <div className="flex-1 p-6 md:p-8 max-w-6xl mx-auto w-full space-y-6">
-        {/* OVERVIEW TAB */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* Stat metric cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-5 rounded-3xl bg-[#171228] border border-white/10 shadow-lg">
-                <div className="flex items-center justify-between text-slate-400 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider">Total Users</span>
-                  <Users className="w-4 h-4 text-purple-400" />
-                </div>
-                <div className="text-2xl font-black text-white">{adminMetrics.total_users.toLocaleString()}</div>
-                <div className="text-[11px] text-emerald-400 mt-1 font-semibold">+14% new registrations this week</div>
-              </div>
-
-              <div className="p-5 rounded-3xl bg-[#171228] border border-white/10 shadow-lg">
-                <div className="flex items-center justify-between text-slate-400 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider">24h Active Users</span>
-                  <Activity className="w-4 h-4 text-emerald-400" />
-                </div>
-                <div className="text-2xl font-black text-white">{adminMetrics.active_users_24h.toLocaleString()}</div>
-                <div className="text-[11px] text-slate-400 mt-1 font-semibold">38.6% engagement ratio</div>
-              </div>
-
-              <div className="p-5 rounded-3xl bg-[#171228] border border-white/10 shadow-lg">
-                <div className="flex items-center justify-between text-slate-400 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider">Messages Logged</span>
-                  <MessageSquare className="w-4 h-4 text-cyan-400" />
-                </div>
-                <div className="text-2xl font-black text-white">{adminMetrics.total_messages.toLocaleString()}</div>
-                <div className="text-[11px] text-slate-400 mt-1 font-semibold">E2EE real-time stream</div>
-              </div>
-
-              <div className="p-5 rounded-3xl bg-[#171228] border border-white/10 shadow-lg">
-                <div className="flex items-center justify-between text-slate-400 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider">Pending Reports</span>
-                  <AlertTriangle className="w-4 h-4 text-amber-400" />
-                </div>
-                <div className="text-2xl font-black text-amber-400">{adminMetrics.pending_reports}</div>
-                <div className="text-[11px] text-slate-400 mt-1 font-semibold">Requires moderator review</div>
-              </div>
-            </div>
-
-            {/* Quick moderation queue banner */}
-            <div className="p-6 rounded-3xl bg-[#1A142E] border border-purple-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-base font-bold text-white">Active Moderation Queue</h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  You have {adminMetrics.pending_reports} flagged messages awaiting resolution.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveTab('reports')}
-                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md"
-              >
-                Review Flagged Content
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* REPORTS TAB */}
-        {activeTab === 'reports' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <h3 className="text-base font-bold text-white">Flagged Reports ({filteredReports.length})</h3>
-              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#171228] border border-white/10 text-xs">
-                {(['all', 'pending', 'reviewed', 'dismissed'] as const).map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    onClick={() => setReportFilter(status)}
-                    className={`px-3 py-1 rounded-lg font-bold capitalize transition-all cursor-pointer ${
-                      reportFilter === status ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {status}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {filteredReports.map((report) => (
-                <div
-                  key={report.id}
-                  className="p-5 rounded-3xl bg-[#171228] border border-white/10 space-y-3 shadow-sm"
+      {/* Main Admin Workspace: Left Sidebar + Tab View */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+        {/* Left Navigation Rail (Desktop Collapsible) / Drawer (Mobile Collapsible) */}
+        <div
+          className={`${
+            isMobileMenuOpen ? 'flex' : 'hidden lg:flex'
+          } ${
+            isSidebarCollapsed ? 'lg:w-20' : 'lg:w-72'
+          } w-full bg-[#120E22]/95 border-b lg:border-b-0 lg:border-r border-purple-500/20 flex-col shrink-0 overflow-y-auto max-h-[50vh] lg:max-h-full transition-all duration-200 ease-in-out z-20`}
+        >
+          {/* Top of Sidebar: Header & Search Controls */}
+          {isSidebarCollapsed ? (
+            /* Collapsed Desktop View: Compact Controls */
+            <div className="p-3 border-b border-white/5 flex flex-col items-center gap-2 shrink-0">
+              <Tooltip content="Expand navigation menu (Ctrl+B)" position="right">
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarCollapsed(false)}
+                  className="w-10 h-10 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 hover:text-white flex items-center justify-center transition-all cursor-pointer border border-purple-500/30 active:scale-95"
+                  aria-label="Expand admin menu"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-bold uppercase">
-                        {report.reason}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        Reported by <strong>{report.reporter_name}</strong> · {report.created_at}
-                      </span>
-                    </div>
+                  <PanelLeftOpen className="w-5 h-5" />
+                </button>
+              </Tooltip>
 
-                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold capitalize ${
-                      report.status === 'pending'
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        : report.status === 'reviewed'
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : 'bg-slate-700 text-slate-300'
-                    }`}>
-                      Status: {report.status}
-                    </span>
-                  </div>
-
-                  {report.message_content && (
-                    <div className="p-3 rounded-2xl bg-black/40 border border-white/5 text-xs text-slate-300 font-mono">
-                      "{report.message_content}"
-                    </div>
-                  )}
-
-                  {report.details && (
-                    <p className="text-xs text-slate-400 italic">Note: {report.details}</p>
-                  )}
-
-                  <div className="flex items-center justify-between pt-1">
-                    <div className="text-xs text-slate-400">
-                      Target User: <strong className="text-white">{report.reported_user_name}</strong>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {report.status === 'pending' && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => updateReportStatus(report.id, 'dismissed')}
-                            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-300 text-xs font-semibold"
-                          >
-                            Dismiss
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateReportStatus(report.id, 'reviewed')}
-                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
-                          >
-                            Mark Reviewed
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <Tooltip content="Search admin modules" position="right">
+                <button
+                  type="button"
+                  onClick={expandAndFocusSearch}
+                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer border border-white/10 active:scale-95"
+                  aria-label="Search admin modules"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+              </Tooltip>
             </div>
-          </div>
-        )}
-
-        {/* USERS TAB */}
-        {activeTab === 'users' && (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <h3 className="text-base font-bold text-white">Registered Users ({filteredUsers.length})</h3>
-              <div className="relative w-full sm:w-72">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  placeholder="Search by name, username, or email..."
-                  className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#171228] border border-white/10 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-purple-500"
-                />
-              </div>
-            </div>
-
-            <div className="rounded-3xl bg-[#171228] border border-white/10 overflow-hidden shadow-xl">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#1C1630] text-slate-400 uppercase font-bold border-b border-white/10">
-                    <tr>
-                      <th className="p-4">User</th>
-                      <th className="p-4">Role</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Account State</th>
-                      <th className="p-4 text-right">Administrative Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {filteredUsers.map((u) => {
-                      const isSuspended = u.account_status === 'suspended';
-                      return (
-                        <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="p-4 flex items-center gap-3">
-                            <Avatar src={u.avatar_url} name={u.name} size="sm" />
-                            <div>
-                              <div className="font-bold text-white">{u.name}</div>
-                              <div className="text-slate-400 text-[11px]">@{u.username} · {u.email}</div>
-                            </div>
-                          </td>
-                          <td className="p-4 font-mono uppercase text-[11px] text-purple-300">
-                            {u.role || 'user'}
-                          </td>
-                          <td className="p-4">
-                            <span className="capitalize text-slate-300">{u.status_state}</span>
-                          </td>
-                          <td className="p-4">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              isSuspended
-                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                            }`}>
-                              {u.account_status || 'active'}
-                            </span>
-                          </td>
-                          <td className="p-4 text-right">
-                            {isSuspended ? (
-                              <button
-                                type="button"
-                                onClick={() => restoreUser(u.id)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/30 text-xs font-bold"
-                              >
-                                <UserCheck className="w-3.5 h-3.5" /> Restore
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => suspendUser(u.id)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600/20 text-rose-300 border border-rose-500/40 hover:bg-rose-600/30 text-xs font-bold"
-                              >
-                                <UserX className="w-3.5 h-3.5" /> Suspend
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* GROUPS TAB */}
-        {activeTab === 'groups' && (
-          <div className="space-y-4">
-            <h3 className="text-base font-bold text-white">Channels & Public Groups ({groups.length})</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {groups.map((grp) => (
-                <div key={grp.id} className="p-5 rounded-3xl bg-[#171228] border border-white/10 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar src={grp.avatar_url} name={grp.title} size="md" isGroup />
-                    <div>
-                      <h4 className="text-xs font-bold text-white">{grp.title}</h4>
-                      <p className="text-[11px] text-slate-400">{grp.participant_ids.length} members · Created {grp.created_at.slice(0, 10)}</p>
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-bold">
-                    Active
+          ) : (
+            /* Expanded View: Header, Search Input, and Collapse Button */
+            <div className="p-3 border-b border-white/5 sticky top-0 bg-[#120E22] z-10 shrink-0 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-xs font-bold text-slate-200">Modules & Tools</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono font-bold">
+                    {allTabs.length}
                   </span>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* SYSTEM TAB */}
-        {activeTab === 'system' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-6 rounded-3xl bg-[#171228] border border-white/10 space-y-4">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <Server className="w-4 h-4 text-emerald-400" /> Supabase Connection Architecture
-              </h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Rovela is configured for zero-friction connection with Supabase. Client entities, schemas, and real-time state hooks are ready to bind with PostgreSQL RLS policies.
-              </p>
-              <div className="space-y-2 text-xs font-mono">
-                <div className="flex justify-between py-1 border-b border-white/5">
-                  <span className="text-slate-400">PostgreSQL Schema Target:</span>
-                  <span className="text-purple-300">public (14 tables)</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-white/5">
-                  <span className="text-slate-400">Realtime Protocol:</span>
-                  <span className="text-emerald-300">WebSocket Broadcast</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-white/5">
-                  <span className="text-slate-400">Storage Buckets:</span>
-                  <span className="text-purple-300">avatars, voice-notes, media</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={toggleAllGroups}
+                    className="text-[10px] px-2 py-1 rounded hover:bg-white/10 text-slate-400 hover:text-purple-300 transition-colors cursor-pointer"
+                    title={areAllGroupsCollapsed ? 'Expand all categories' : 'Collapse all categories'}
+                  >
+                    {areAllGroupsCollapsed ? 'Expand All' : 'Collapse All'}
+                  </button>
+
+                  <Tooltip content="Collapse menu (Ctrl+B)" position="left">
+                    <button
+                      type="button"
+                      onClick={() => setIsSidebarCollapsed(true)}
+                      className="hidden lg:flex w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white items-center justify-center transition-all cursor-pointer"
+                      aria-label="Collapse menu rail"
+                    >
+                      <PanelLeftClose className="w-4 h-4" />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
-            </div>
 
-            <div className="p-6 rounded-3xl bg-[#171228] border border-white/10 space-y-4">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <Activity className="w-4 h-4 text-cyan-400" /> Real-Time Platform Status
-              </h4>
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-slate-400">WebSocket Latency</span>
-                    <span className="text-emerald-400 font-bold">18ms</span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                    <div className="h-full bg-emerald-400 rounded-full w-[94%]" />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-slate-400">Voice Buffer Quality</span>
-                    <span className="text-emerald-400 font-bold">99.8%</span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                    <div className="h-full bg-emerald-400 rounded-full w-[99%]" />
-                  </div>
-                </div>
+              {/* Quick Tab Search */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={tabSearch}
+                  onChange={(e) => setTabSearch(e.target.value)}
+                  placeholder="Search admin modules..."
+                  className="w-full pl-8 pr-7 py-1.5 rounded-lg bg-[#0F0B1A] border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                />
+                {tabSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setTabSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5"
+                    title="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
+          )}
+
+          {/* Tab Navigation Sections */}
+          <div className="p-2 sm:p-3 space-y-3 flex-1 overflow-y-auto">
+            {isSidebarCollapsed ? (
+              /* ================= COLLAPSED ICON RAIL ================= */
+              <div className="flex flex-col items-center gap-1.5">
+                {tabGroups.map((group, groupIdx) => (
+                  <React.Fragment key={group.name}>
+                    {groupIdx > 0 && <div className="w-6 h-px bg-white/10 my-1" />}
+                    {group.tabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.id;
+                      return (
+                        <Tooltip
+                          key={tab.id}
+                          content={`${tab.label}${tab.badge ? ` (${tab.badge})` : ''}`}
+                          position="right"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleSelectTab(tab.id)}
+                            className={`w-11 h-11 rounded-xl flex items-center justify-center relative transition-colors cursor-pointer focus:outline-none ${
+                              isActive
+                                ? 'bg-purple-600 text-white'
+                                : 'text-slate-400 hover:text-white hover:bg-white/10'
+                            }`}
+                            aria-label={tab.label}
+                          >
+                            <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-purple-400'}`} />
+                            {tab.badge && (
+                              <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-purple-400 ring-2 ring-[#120E22]" />
+                            )}
+                          </button>
+                        </Tooltip>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+
+                {/* Bottom expand button */}
+                <div className="pt-2 w-full flex justify-center">
+                  <Tooltip content="Expand menu (Ctrl+B)" position="right">
+                    <button
+                      type="button"
+                      onClick={() => setIsSidebarCollapsed(false)}
+                      className="w-10 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                      aria-label="Expand navigation menu"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </Tooltip>
+                </div>
+              </div>
+            ) : tabSearch.trim() ? (
+              /* ================= SEARCH RESULTS (EXPANDED) ================= */
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 px-2">
+                  Matching Modules ({filteredTabs.length})
+                </span>
+                {filteredTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => handleSelectTab(tab.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer focus:outline-none ${
+                        isActive
+                          ? 'bg-purple-600 text-white'
+                          : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className="w-4 h-4 text-purple-400" />
+                        <span>{tab.label}</span>
+                      </div>
+                      {tab.badge && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-200 font-mono">
+                          {tab.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              /* ================= GROUPED ACCORDION (EXPANDED) ================= */
+              tabGroups.map((group) => {
+                const isGroupCollapsed = !!collapsedGroups[group.name];
+                const activeInThisGroup = group.tabs.some((t) => t.id === activeTab);
+
+                return (
+                  <div key={group.name} className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(group.name)}
+                      className="w-full flex items-center justify-between px-2 py-1 text-[10px] uppercase font-bold tracking-wider text-slate-400 hover:text-purple-300 transition-colors cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>{group.name}</span>
+                        <span className="text-[9px] text-slate-500 font-normal">
+                          ({group.tabs.length})
+                        </span>
+                        {activeInThisGroup && isGroupCollapsed && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                        )}
+                      </div>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                          isGroupCollapsed ? '-rotate-90 text-slate-500' : 'text-slate-400'
+                        }`}
+                      />
+                    </button>
+
+                    {!isGroupCollapsed && (
+                      <div className="space-y-0.5">
+                        {group.tabs.map((tab) => {
+                          const Icon = tab.icon;
+                          const isActive = activeTab === tab.id;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => handleSelectTab(tab.id)}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer focus:outline-none ${
+                                isActive
+                                  ? 'bg-purple-600 text-white'
+                                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <Icon
+                                  className={`w-4 h-4 ${isActive ? 'text-white' : 'text-purple-400'}`}
+                                />
+                                <span>{tab.label}</span>
+                              </div>
+                              {tab.badge && (
+                                <span
+                                  className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-bold font-mono ${
+                                    isActive
+                                      ? 'bg-white/20 text-white'
+                                      : 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                                  }`}
+                                >
+                                  {tab.badge}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
-        )}
+        </div>
+
+        {/* Active Tab Viewport Area */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 min-w-0">
+          <div className="max-w-6xl mx-auto w-full">{renderActiveTabContent()}</div>
+        </div>
       </div>
     </div>
   );

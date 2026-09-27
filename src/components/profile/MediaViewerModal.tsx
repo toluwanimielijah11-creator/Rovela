@@ -18,7 +18,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
 }) => {
   const { showToast } = useChat();
 
-  if (!isOpen || !url) return null;
+  if (!isOpen || !url || url.trim() === '') return null;
 
   const handleDownload = () => {
     const link = document.createElement('a');

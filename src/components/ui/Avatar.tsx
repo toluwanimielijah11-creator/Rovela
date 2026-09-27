@@ -56,12 +56,14 @@ export const Avatar: React.FC<AvatarProps> = ({
         .toUpperCase()
     : '?';
 
+  const hasValidSrc = Boolean(src && typeof src === 'string' && src.trim() !== '');
+
   return (
     <div className={`relative inline-block shrink-0 ${className}`}>
       <div
         className={`${sizeClasses[size]} rounded-2xl overflow-hidden flex items-center justify-center font-bold select-none border border-white/20 dark:border-white/10 shadow-sm bg-gradient-to-br from-violet-600/30 to-purple-800/40 text-purple-200 dark:text-purple-100 backdrop-blur-sm transition-transform duration-150`}
       >
-        {src && !imageError ? (
+        {hasValidSrc && !imageError ? (
           <img
             src={src}
             alt={name}

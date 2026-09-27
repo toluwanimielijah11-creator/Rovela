@@ -326,3 +326,117 @@ export function getCssVariablesForTheme(isDark: boolean): Record<string, string>
     '--rovela-msg-outgoing-subtext': tokens.message.outgoingSubtext,
   };
 }
+
+export interface DynamicGlobalSettings {
+  siteName?: string;
+  siteTagline?: string;
+  logoUrl?: string;
+  faviconUrl?: string;
+  primaryColor?: string;
+  glowColor?: string;
+  surfaceGlassBlur?: number;
+}
+
+export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const cleanHex = hex.replace('#', '').trim();
+  if (cleanHex.length === 3) {
+    const r = parseInt(cleanHex[0] + cleanHex[0], 16);
+    const g = parseInt(cleanHex[1] + cleanHex[1], 16);
+    const b = parseInt(cleanHex[2] + cleanHex[2], 16);
+    return { r, g, b };
+  }
+  if (cleanHex.length === 6) {
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    return { r, g, b };
+  }
+  return null;
+}
+
+export function adjustColorBrightness(hex: string, percent: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  const adjust = (val: number) => Math.min(255, Math.max(0, Math.round(val + (val * percent) / 100)));
+  const r = adjust(rgb.r).toString(16).padStart(2, '0');
+  const g = adjust(rgb.g).toString(16).padStart(2, '0');
+  const b = adjust(rgb.b).toString(16).padStart(2, '0');
+  return `#${r}${g}${b}`;
+}
+
+/**
+ * Propagates admin system settings to the global site DOM:
+ * - Dynamic CSS variables (--brand-primary, --rovela-primary, --brand-glow, --rovela-surface-glass-blur, etc.)
+ * - Document title and OpenGraph metadata
+ * - Favicon and Apple touch icons
+ */
+export function applyGlobalSettingsToDocument(settings: DynamicGlobalSettings) {
+  if (typeof document === 'undefined') return;
+
+  const root = document.documentElement;
+
+  // 1. Accent & Brand Colors
+  if (settings.primaryColor) {
+    const primary = settings.primaryColor;
+    const glow = settings.glowColor || primary;
+    const darker = adjustColorBrightness(primary, -25);
+    const softer = adjustColorBrightness(primary, 40);
+    const primaryRgb = hexToRgb(primary);
+    const glowRgb = hexToRgb(glow);
+
+    root.style.setProperty('--brand-primary', primary);
+    root.style.setProperty('--rovela-brand-primary', primary);
+    root.style.setProperty('--rovela-primary', primary);
+
+    root.style.setProperty('--brand-glow', glow);
+    root.style.setProperty('--rovela-brand-glow', glow);
+    root.style.setProperty('--rovela-glow', glow);
+
+    root.style.setProperty('--brand-secondary', darker);
+    root.style.setProperty('--rovela-brand-secondary', darker);
+
+    root.style.setProperty('--brand-soft', softer);
+    root.style.setProperty('--rovela-brand-soft', softer);
+
+    root.style.setProperty('--brand-active', primary);
+    root.style.setProperty('--rovela-brand-active', primary);
+
+    root.style.setProperty(
+      '--rovela-msg-outgoing-bg',
+      `linear-gradient(135deg, ${primary} 0%, ${glow} 100%)`
+    );
+
+    if (primaryRgb) {
+      root.style.setProperty('--rovela-primary-rgb', `${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}`);
+    }
+    if (glowRgb) {
+      root.style.setProperty('--rovela-glow-rgb', `${glowRgb.r}, ${glowRgb.g}, ${glowRgb.b}`);
+    }
+  }
+
+  // 2. Liquid Glass Blur Radius
+  if (typeof settings.surfaceGlassBlur === 'number') {
+    const blur = Math.max(4, Math.min(40, settings.surfaceGlassBlur));
+    root.style.setProperty('--rovela-surface-glass-blur', `${blur}px`);
+  }
+
+  // 3. Document Title & Head Branding
+  if (settings.siteName) {
+    const titleText = settings.siteTagline
+      ? `${settings.siteName} — ${settings.siteTagline}`
+      : `${settings.siteName} — Next-Generation Liquid Glass Communication`;
+    document.title = titleText;
+
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) ogTitle.setAttribute('content', settings.siteName);
+  }
+
+  // 4. Favicon & Apple Touch Icon
+  if (settings.faviconUrl || settings.logoUrl) {
+    const iconUrl = settings.faviconUrl || settings.logoUrl || '/rovela-icon.png';
+    const favicons = document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="apple-touch-icon"]');
+    favicons.forEach((el) => {
+      el.href = iconUrl;
+    });
+  }
+}

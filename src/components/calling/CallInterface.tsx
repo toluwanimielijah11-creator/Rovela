@@ -80,10 +80,11 @@ export const CallInterface: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-b from-purple-950/40 via-slate-900 to-[#0A0713] flex flex-col items-center justify-center">
                   <div className="relative mb-4">
                     <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden border-2 border-purple-500/50 shadow-2xl shadow-purple-900/50">
-                      <img
+                      <Avatar
                         src={activeCall.avatar_url}
-                        alt={activeCall.title}
-                        className="w-full h-full object-cover"
+                        name={activeCall.title}
+                        size="xl"
+                        className="w-full h-full text-3xl"
                       />
                     </div>
                     {/* Simulated Speaking Ring */}

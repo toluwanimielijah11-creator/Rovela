@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { RovelaLogo } from '../ui/RovelaLogo';
+import { Avatar } from '../ui/Avatar';
 import { useChat } from '../../context/ChatContext';
+import { RovelaWelcomeScreen } from './RovelaWelcomeScreen';
 import {
   ArrowLeft,
   Eye,
@@ -122,6 +124,18 @@ export const RovelaAuthJourney: React.FC<RovelaAuthJourneyProps> = ({
     });
     if (onComplete) onComplete();
   };
+
+  if (currentScreen === 'welcome') {
+    return (
+      <RovelaWelcomeScreen
+        onGoToRegister={() => setCurrentScreen('register')}
+        onLoginSuccess={() => {
+          if (onComplete) onComplete();
+        }}
+        onCancel={onCancel}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#0D0B12] text-white select-none overflow-y-auto font-sans">
@@ -527,10 +541,11 @@ export const RovelaAuthJourney: React.FC<RovelaAuthJourneyProps> = ({
             <div className="flex flex-col items-center mb-6">
               <div className="relative group cursor-pointer">
                 <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-purple-500/40 p-0.5 bg-gradient-to-b from-purple-500/30 to-violet-700/10">
-                  <img
+                  <Avatar
                     src={profileAvatar}
-                    alt="Profile preview"
-                    className="w-full h-full object-cover rounded-full"
+                    name={profileName}
+                    size="xl"
+                    className="w-full h-full rounded-full"
                   />
                 </div>
                 <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-purple-600 border-2 border-[#0D0B12] flex items-center justify-center text-white shadow-md">
@@ -778,6 +793,18 @@ export const RovelaAuthJourney: React.FC<RovelaAuthJourneyProps> = ({
         {/* ========================================================================= */}
         {currentScreen === 'login' && (
           <div className="w-full flex flex-col my-auto">
+            {/* Header with Back button */}
+            <div className="flex items-center mb-4">
+              <button
+                type="button"
+                onClick={() => setCurrentScreen('welcome')}
+                className="w-10 h-10 -ml-2 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer"
+                aria-label="Back to welcome"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            </div>
+
             {/* Centered Rovela Ribbon Logo */}
             <div className="flex flex-col items-center text-center mb-6">
               <RovelaLogo size="lg" showWordmark={false} className="mb-3" />

@@ -19,7 +19,7 @@ export const PhotoCropModal: React.FC<PhotoCropModalProps> = ({
   const [rotation, setRotation] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
 
-  if (!isOpen) return null;
+  if (!isOpen || !imageUrl || imageUrl.trim() === '') return null;
 
   const handleSave = () => {
     setIsSaving(true);

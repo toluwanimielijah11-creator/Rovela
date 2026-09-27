@@ -3,8 +3,6 @@ import { useChat } from '../../context/ChatContext';
 import { UserStatusGroup, StatusPrivacy } from '../../types';
 import { Avatar } from '../ui/Avatar';
 import { StatusCreationSheet } from './StatusCreationSheet';
-import { MediaStatusEditor } from './MediaStatusEditor';
-import { TextStatusEditor } from './TextStatusEditor';
 import { StatusPrivacyModal } from './StatusPrivacyModal';
 import {
   Plus,
@@ -30,6 +28,8 @@ export const StatusView: React.FC = () => {
     statusGroups,
     openStatusViewer,
     toggleMuteUserStatus,
+    openStatusMediaPreview,
+    openStatusTextEditor,
   } = useChat();
 
   // Search & Filter
@@ -40,12 +40,8 @@ export const StatusView: React.FC = () => {
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState<boolean>(false);
   const [statusPrivacy, setStatusPrivacy] = useState<StatusPrivacy>('contacts');
 
-  // Creation Sheet and Editors State
+  // Creation Sheet State
   const [isCreationSheetOpen, setIsCreationSheetOpen] = useState<boolean>(false);
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [mediaType, setMediaType] = useState<'IMAGE' | 'VIDEO'>('IMAGE');
-  const [isMediaEditorOpen, setIsMediaEditorOpen] = useState<boolean>(false);
-  const [isTextEditorOpen, setIsTextEditorOpen] = useState<boolean>(false);
 
   // Filter out expired statuses
   const now = Date.now();
@@ -91,15 +87,19 @@ export const StatusView: React.FC = () => {
   };
 
   const handleSelectPhoto = (file: File) => {
-    setMediaFile(file);
-    setMediaType('IMAGE');
-    setIsMediaEditorOpen(true);
+    openStatusMediaPreview(file, 'IMAGE');
   };
 
   const handleSelectVideo = (file: File) => {
-    setMediaFile(file);
-    setMediaType('VIDEO');
-    setIsMediaEditorOpen(true);
+    openStatusMediaPreview(file, 'VIDEO');
+  };
+
+  const handleSelectSamplePhoto = (url: string) => {
+    openStatusMediaPreview(null, 'IMAGE', url);
+  };
+
+  const handleSelectSampleVideo = (url: string) => {
+    openStatusMediaPreview(null, 'VIDEO', url);
   };
 
   const handleOpenMyStatus = () => {
@@ -121,26 +121,9 @@ export const StatusView: React.FC = () => {
         onClose={() => setIsCreationSheetOpen(false)}
         onSelectPhoto={handleSelectPhoto}
         onSelectVideo={handleSelectVideo}
-        onSelectText={() => setIsTextEditorOpen(true)}
-      />
-
-      {/* Media Editor */}
-      <MediaStatusEditor
-        isOpen={isMediaEditorOpen}
-        file={mediaFile}
-        type={mediaType}
-        onClose={() => {
-          setIsMediaEditorOpen(false);
-          setMediaFile(null);
-        }}
-        onPublished={() => {}}
-      />
-
-      {/* Text Editor */}
-      <TextStatusEditor
-        isOpen={isTextEditorOpen}
-        onClose={() => setIsTextEditorOpen(false)}
-        onPublished={() => {}}
+        onSelectText={openStatusTextEditor}
+        onSelectSamplePhoto={handleSelectSamplePhoto}
+        onSelectSampleVideo={handleSelectSampleVideo}
       />
 
       {/* Privacy Settings Modal */}
@@ -302,10 +285,11 @@ export const StatusView: React.FC = () => {
                       : 'border-2 border-dashed border-[var(--rovela-border)]'
                   }`}
                 >
-                  <img
+                  <Avatar
                     src={currentUser.avatar_url}
-                    alt={currentUser.name}
-                    className="w-full h-full rounded-full object-cover ring-2 ring-[var(--rovela-surface)]"
+                    name={currentUser.name}
+                    size="md"
+                    className="w-full h-full rounded-full ring-2 ring-[var(--rovela-surface)]"
                   />
                 </div>
 
@@ -399,10 +383,11 @@ export const StatusView: React.FC = () => {
                     {/* Vibrant Purple Gradient Status Ring */}
                     <div className="relative">
                       <div className="w-13 h-13 rounded-full p-[2.5px] bg-gradient-to-tr from-violet-600 via-purple-500 to-pink-500 shadow-md shadow-purple-500/20 group-hover:scale-105 transition-transform">
-                        <img
+                        <Avatar
                           src={group.user_avatar}
-                          alt={group.user_name}
-                          className="w-full h-full rounded-full object-cover ring-2 ring-[var(--rovela-surface)]"
+                          name={group.user_name}
+                          size="md"
+                          className="w-full h-full rounded-full ring-2 ring-[var(--rovela-surface)]"
                         />
                       </div>
                       {group.items.length > 1 && (
@@ -450,10 +435,11 @@ export const StatusView: React.FC = () => {
                     {/* Subtle Muted Ring */}
                     <div className="relative">
                       <div className="w-13 h-13 rounded-full p-[2px] border-2 border-[var(--rovela-border)] group-hover:border-purple-400/50 transition-colors">
-                        <img
+                        <Avatar
                           src={group.user_avatar}
-                          alt={group.user_name}
-                          className="w-full h-full rounded-full object-cover ring-1 ring-[var(--rovela-surface)] opacity-85 group-hover:opacity-100 transition-opacity"
+                          name={group.user_name}
+                          size="md"
+                          className="w-full h-full rounded-full ring-1 ring-[var(--rovela-surface)] opacity-85 group-hover:opacity-100 transition-opacity"
                         />
                       </div>
                     </div>
@@ -508,10 +494,11 @@ export const StatusView: React.FC = () => {
                       onClick={() => openStatusViewer(group, 0)}
                     >
                       <div className="w-12 h-12 rounded-full p-[2px] border border-[var(--rovela-border)]">
-                        <img
+                        <Avatar
                           src={group.user_avatar}
-                          alt={group.user_name}
-                          className="w-full h-full rounded-full object-cover opacity-60"
+                          name={group.user_name}
+                          size="md"
+                          className="w-full h-full rounded-full opacity-60"
                         />
                       </div>
                       <div>

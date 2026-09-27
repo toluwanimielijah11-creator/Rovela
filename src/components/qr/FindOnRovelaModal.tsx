@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Avatar } from '../ui/Avatar';
 import {
   X,
   Search,
@@ -143,11 +144,11 @@ export const FindOnRovelaModal: React.FC<FindOnRovelaModalProps> = ({
                       className="flex items-center gap-3 min-w-0 text-left flex-1 cursor-pointer"
                     >
                       <div className="relative shrink-0">
-                        <img
+                        <Avatar
                           src={user.avatar_url}
-                          alt={user.name}
-                          className="w-12 h-12 rounded-full object-cover ring-2 ring-purple-500/20"
-                          referrerPolicy="no-referrer"
+                          name={user.name}
+                          size="md"
+                          className="w-12 h-12 rounded-2xl ring-2 ring-purple-500/20"
                         />
                         <span
                           className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[var(--rovela-surface)] ${

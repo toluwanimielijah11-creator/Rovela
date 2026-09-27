@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Avatar } from '../ui/Avatar';
 import {
   X,
   Share2,
@@ -106,11 +107,11 @@ export const RovelaQrModal: React.FC<RovelaQrModalProps> = ({
             {/* User Identity Preview */}
             <div className="flex flex-col items-center mb-5">
               <div className="relative mb-2">
-                <img
+                <Avatar
                   src={user.avatar_url}
-                  alt={user.name}
-                  className="w-16 h-16 rounded-full object-cover ring-4 ring-purple-500/40 shadow-xl"
-                  referrerPolicy="no-referrer"
+                  name={user.name}
+                  size="lg"
+                  className="w-16 h-16 rounded-full ring-4 ring-purple-500/40 shadow-xl"
                 />
                 <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[#161226]" />
               </div>
@@ -157,11 +158,11 @@ export const RovelaQrModal: React.FC<RovelaQrModalProps> = ({
                 {/* Center Rovela Avatar Badge */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="w-12 h-12 rounded-xl bg-[#161226] border-2 border-white shadow-lg flex items-center justify-center overflow-hidden">
-                    <img
+                    <Avatar
                       src={user.avatar_url}
-                      alt="Avatar badge"
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
+                      name={user.name}
+                      size="sm"
+                      className="w-full h-full rounded-xl"
                     />
                   </div>
                 </div>

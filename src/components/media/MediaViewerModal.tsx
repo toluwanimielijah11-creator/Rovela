@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -14,6 +14,7 @@ import {
   Maximize2,
 } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
+import { safePlayMedia, safePauseMedia } from '../../utils/mediaUtils';
 
 interface MediaViewerModalProps {
   isOpen: boolean;
@@ -47,8 +48,34 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
   const { showToast } = useChat();
   const [zoom, setZoom] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playPromiseRef = useRef<Promise<void> | undefined>(undefined);
 
-  if (!isOpen) return null;
+  const handleClose = useCallback(() => {
+    safePauseMedia(videoRef.current, playPromiseRef.current);
+    onClose();
+  }, [onClose]);
+
+  const handleNextMedia = useCallback(() => {
+    safePauseMedia(videoRef.current, playPromiseRef.current);
+    onNext?.();
+  }, [onNext]);
+
+  const handlePrevMedia = useCallback(() => {
+    safePauseMedia(videoRef.current, playPromiseRef.current);
+    onPrev?.();
+  }, [onPrev]);
+
+  useEffect(() => {
+    if (isOpen && type === 'video' && videoRef.current) {
+      playPromiseRef.current = safePlayMedia(videoRef.current);
+    }
+    return () => {
+      safePauseMedia(videoRef.current, playPromiseRef.current);
+    };
+  }, [isOpen, url, type]);
+
+  if (!isOpen || !url || url.trim() === '') return null;
 
   const handleZoomIn = () => setZoom((z) => Math.min(z + 0.3, 3));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 0.3, 0.6));
@@ -89,12 +116,13 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="w-10 h-10 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
               aria-label="Close viewer"
             >
               <X className="w-5 h-5" />
             </button>
+
             <div className="min-w-0">
               <h3 className="text-sm font-bold text-white truncate">
                 {title || 'Media Viewer'}
@@ -204,7 +232,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
           {onPrev && (
             <button
               type="button"
-              onClick={onPrev}
+              onClick={handlePrevMedia}
               className="absolute left-4 z-20 w-11 h-11 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-md border border-white/10 transition-all cursor-pointer"
               aria-label="Previous media"
             >
@@ -215,7 +243,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
           {onNext && (
             <button
               type="button"
-              onClick={onNext}
+              onClick={handleNextMedia}
               className="absolute right-4 z-20 w-11 h-11 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-md border border-white/10 transition-all cursor-pointer"
               aria-label="Next media"
             >
@@ -225,9 +253,10 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
 
           {type === 'video' ? (
             <video
+              ref={videoRef}
               src={url}
               controls
-              autoPlay
+              playsInline
               className="max-h-[85vh] max-w-[90vw] rounded-2xl shadow-2xl object-contain"
             />
           ) : (

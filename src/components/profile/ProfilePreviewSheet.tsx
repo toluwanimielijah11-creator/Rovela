@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Avatar } from '../ui/Avatar';
 import {
   X,
   MessageSquare,
@@ -103,11 +104,11 @@ export const ProfilePreviewSheet: React.FC<ProfilePreviewSheetProps> = ({
               }
               className="relative group cursor-pointer focus:outline-none"
             >
-              <img
+              <Avatar
                 src={avatarUrl}
-                alt={displayName}
-                className="w-24 h-24 rounded-full object-cover ring-4 ring-purple-500/30 shadow-xl group-hover:scale-105 transition-transform"
-                referrerPolicy="no-referrer"
+                name={displayName}
+                size="xl"
+                className="w-24 h-24 text-2xl rounded-full ring-4 ring-purple-500/30 shadow-xl group-hover:scale-105 transition-transform"
               />
               <span
                 className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-[var(--rovela-surface)] ${

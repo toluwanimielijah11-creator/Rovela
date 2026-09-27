@@ -16,6 +16,7 @@ import {
   VolumeX,
   Trash2,
   Check,
+  ArrowLeft,
 } from 'lucide-react';
 
 export const NotificationsView: React.FC = () => {
@@ -63,13 +64,24 @@ export const NotificationsView: React.FC = () => {
     <div className="flex-1 flex flex-col h-full bg-slate-50/50 dark:bg-[#0D0B12] overflow-y-auto select-none">
       {/* Top Header matching Section 16 */}
       <div className="p-4 sm:p-6 pb-4 border-b border-slate-200/80 dark:border-white/[0.08] glass-2-light dark:glass-2-dark flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
-        <div>
-          <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            Notifications
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Stay updated with incoming messages, mentions, and updates.
-          </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setActiveSection('more')}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors"
+            title="Back to More"
+            aria-label="Back to More"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              Notifications
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Stay updated with incoming messages, mentions, and updates.
+            </p>
+          </div>
         </div>
 
         {/* PRIMARY ACTIONS: Mark all as read, Notification Settings */}

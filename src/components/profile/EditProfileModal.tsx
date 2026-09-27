@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Avatar } from '../ui/Avatar';
 import {
   X,
   Camera,
@@ -171,14 +172,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               {/* Photo Section */}
               <div className="flex flex-col items-center justify-center space-y-3">
                 <div className="relative group">
-                  <div className="w-28 h-28 rounded-full overflow-hidden ring-4 ring-purple-500/30 shadow-xl bg-purple-900/20">
-                    <img
-                      src={avatarUrl}
-                      alt={name}
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
+                  <Avatar
+                    src={avatarUrl}
+                    name={name}
+                    size="xl"
+                    className="w-28 h-28 text-2xl ring-4 ring-purple-500/30 shadow-xl rounded-full"
+                  />
 
                   {/* Photo action button */}
                   <button

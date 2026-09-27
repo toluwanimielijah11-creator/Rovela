@@ -1,26 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Message } from '../../types';
-import { StatusIndicator } from '../common/StatusIndicator';
 import { useChat } from '../../context/ChatContext';
 import { Avatar } from '../ui/Avatar';
-import { VoiceMessage } from './VoiceMessage';
 import { ForwardDialog } from '../modals/ForwardDialog';
 import { ReportMessageDialog } from '../modals/ReportMessageDialog';
+import { MessageRenderer } from './renderer/MessageRenderer';
+import { AllReactionsPicker } from './AllReactionsPicker';
+import { formatRelativeMessageTime } from '../../utils/dateUtils';
 import {
   Reply,
-  FileText,
-  Download,
   Trash2,
-  Edit2,
   Forward,
   Flag,
   Copy,
-  Check,
   MoreVertical,
   Star,
   Pin,
   Info,
   X,
+  Plus,
 } from 'lucide-react';
 
 interface MessageBubbleProps {
@@ -38,17 +36,28 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onReply,
   onJumpToReply,
 }) => {
-  const { addReaction, deleteMessage, editMessage, currentUser, showToast } = useChat();
+  const {
+    addReaction,
+    deleteMessage,
+    currentUser,
+    showToast,
+    retryMessage,
+  } = useChat();
+
   const [showActions, setShowActions] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(message.content);
+  const [isAllReactionsOpen, setIsAllReactionsOpen] = useState(false);
   const [isForwardOpen, setIsForwardOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isStarred, setIsStarred] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
+
+  // Swipe-to-reply and long-press state
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -56,13 +65,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setIsMenuOpen(false);
+        setIsAllReactionsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const quickEmojis = ['❤️', '👍', '😂', '🔥', '😮', '🙏'];
+  const quickEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
   // Handle system message
   if (message.type === 'system') {
@@ -75,20 +85,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     );
   }
 
-  const handleSaveEdit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editContent.trim()) {
-      editMessage(message.id, editContent);
-      setIsEditing(false);
-    }
-  };
-
   const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
-    setIsCopied(true);
+    let copyText = message.content;
+    if (message.type === 'voice' || message.voice_data) {
+      const dur = message.voice_data?.duration || message.voice_duration || 0;
+      copyText = `Voice note (${Math.floor(dur / 60)}:${(dur % 60).toString().padStart(2, '0')})`;
+    } else if (message.type === 'video' || message.video_data) {
+      copyText = message.video_data?.caption || message.content || 'Video message';
+    }
+    navigator.clipboard.writeText(copyText);
     showToast('Copied to clipboard', undefined, 'success');
     setIsMenuOpen(false);
-    setTimeout(() => setIsCopied(false), 1500);
   };
 
   const handleStar = () => {
@@ -108,6 +115,55 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     setIsMenuOpen(true);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) {
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    // Long press detection for mobile
+    longPressTimerRef.current = setTimeout(() => {
+      setIsMenuOpen(true);
+      setShowActions(true);
+    }, 450);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos.current || !e.touches[0]) return;
+    const diffX = e.touches[0].clientX - touchStartPos.current.x;
+    const diffY = e.touches[0].clientY - touchStartPos.current.y;
+
+    if (Math.abs(diffX) > 8 || Math.abs(diffY) > 8) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+      // Horizontal swipe to reply
+      const offset = isCurrentUser
+        ? Math.min(0, Math.max(-65, diffX))
+        : Math.max(0, Math.min(65, diffX));
+      setSwipeOffset(offset);
+      setIsSwiping(true);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    if (Math.abs(swipeOffset) >= 40) {
+      onReply(message);
+      showToast(`Replying to ${message.sender_name}`);
+    }
+
+    setSwipeOffset(0);
+    setIsSwiping(false);
+    touchStartPos.current = null;
+  };
+
   return (
     <>
       <div
@@ -116,10 +172,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         }`}
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => {
-          if (!isMenuOpen) setShowActions(false);
+          if (!isMenuOpen && !isAllReactionsOpen) setShowActions(false);
         }}
         onContextMenu={handleContextMenu}
       >
+        {/* Swipe-to-reply indicator icon behind the bubble */}
+        <div
+          className={`absolute ${
+            isCurrentUser ? 'right-full mr-2' : 'left-full ml-2'
+          } self-center flex items-center justify-center pointer-events-none transition-all duration-150 ${
+            Math.abs(swipeOffset) > 15 ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
+          }`}
+        >
+          <div className="w-7 h-7 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-md">
+            <Reply className="w-3.5 h-3.5" />
+          </div>
+        </div>
+
         {/* Left Avatar for incoming messages */}
         {!isCurrentUser && (
           <Avatar
@@ -135,7 +204,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           className={`absolute -top-7 ${
             isCurrentUser ? 'right-0' : 'left-9'
           } z-20 flex items-center gap-0.5 p-1 rounded-full bg-[var(--rovela-surface)] shadow-xl transition-all duration-150 select-none border border-[var(--rovela-border)] ${
-            showActions || isMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
+            showActions || isMenuOpen || isAllReactionsOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
           }`}
           ref={menuRef}
         >
@@ -152,9 +221,39 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 {emoji}
               </button>
             ))}
+            {/* ＋ Button to open All Reactions */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsAllReactionsOpen(!isAllReactionsOpen);
+              }}
+              className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-[var(--rovela-text-secondary)] hover:text-purple-600 dark:hover:text-purple-300 hover:bg-[var(--rovela-surface-hover)] active:scale-95 transition-all cursor-pointer font-bold"
+              title="All reactions"
+              aria-label="All reactions"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          {/* Single More Options trigger button for Section 11 Message Action Menu */}
+          {/* All Reactions Popover */}
+          {isAllReactionsOpen && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className={`absolute top-8 ${isCurrentUser ? 'right-0' : 'left-0'} z-50`}
+            >
+              <AllReactionsPicker
+                onSelectReaction={(emoji) => {
+                  addReaction(message.id, emoji);
+                  setIsAllReactionsOpen(false);
+                }}
+                onClose={() => setIsAllReactionsOpen(false)}
+                align={isCurrentUser ? 'right' : 'left'}
+              />
+            </div>
+          )}
+
+          {/* More Options trigger */}
           <div className="relative">
             <button
               type="button"
@@ -166,9 +265,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <MoreVertical className="w-3.5 h-3.5" />
             </button>
 
-            {/* ========================================================================= */}
-            {/* 11. MESSAGE ACTION MENU (Reply, Forward, Copy, Star, Pin, Info, Delete, Report) */}
-            {/* ========================================================================= */}
+            {/* Action Menu dropdown */}
             {isMenuOpen && (
               <div
                 onClick={(e) => e.stopPropagation()}
@@ -245,22 +342,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   <span>Info</span>
                 </button>
 
-                {/* Edit (if text and sender) */}
-                {isCurrentUser && message.type === 'text' && !message.is_deleted && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      setEditContent(message.content);
-                      setIsEditing(true);
-                    }}
-                    className="w-full px-3 py-2 flex items-center gap-2.5 hover:bg-[var(--rovela-surface-hover)] text-left transition-colors cursor-pointer border-t border-[var(--rovela-border)]"
-                  >
-                    <Edit2 className="w-3.5 h-3.5 text-[var(--rovela-text-muted)]" />
-                    <span>Edit message</span>
-                  </button>
-                )}
-
                 {/* Delete */}
                 {isCurrentUser && (
                   <button
@@ -295,8 +376,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </div>
         </div>
 
-        {/* Bubble Container */}
-        <div className={`flex flex-col max-w-[85%] sm:max-w-[70%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+        {/* Bubble Container with Long-Press & Horizontal Swipe Gesture */}
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{
+            transform: `translateX(${swipeOffset}px)`,
+            transition: isSwiping ? 'none' : 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+          className={`flex flex-col max-w-[85%] sm:max-w-[70%] ${isCurrentUser ? 'items-end' : 'items-start'}`}
+        >
           {/* Sender Name for group chats */}
           {showSenderName && !isCurrentUser && (
             <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 mb-1 ml-1 select-none">
@@ -316,7 +406,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {message.reply_to && (
             <div
               onClick={() => onJumpToReply?.(message.reply_to!.id)}
-              className={`mb-1 px-3 py-1.5 rounded-xl text-xs border-l-2 cursor-pointer transition-all hover:opacity-90 select-none ${
+              className={`mb-1 px-3 py-1.5 rounded-xl text-xs border-l-2 cursor-pointer transition-all hover:opacity-90 select-none max-w-full ${
                 isCurrentUser
                   ? 'bg-purple-900/40 border-purple-300 text-purple-200'
                   : 'bg-[var(--rovela-surface-secondary)] border-purple-500 text-[var(--rovela-text-primary)]'
@@ -329,111 +419,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Actual Message Content Bubble (Liquid Glass styling) */}
-          <div
-            className={`relative px-4 py-2.5 rounded-3xl text-sm break-words transition-all duration-150 ${
-              isCurrentUser
-                ? 'bg-gradient-to-tr from-violet-600 via-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/15 rounded-br-md'
-                : 'bg-[var(--rovela-surface-secondary)] text-[var(--rovela-text-primary)] border border-[var(--rovela-border)] shadow-sm rounded-bl-md'
-            }`}
-          >
-            {/* Inline editing mode */}
-            {isEditing ? (
-              <form onSubmit={handleSaveEdit} className="space-y-2 min-w-[200px]">
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  className="w-full p-2 text-xs rounded-xl bg-black/20 text-white border border-white/20 focus:outline-none focus:ring-1 focus:ring-purple-300"
-                  rows={2}
-                  autoFocus
-                />
-                <div className="flex justify-end gap-1.5 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(false)}
-                    className="px-2.5 py-1 rounded-lg bg-black/20 hover:bg-black/30 text-white cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-2.5 py-1 rounded-lg bg-purple-500 hover:bg-purple-400 text-white font-bold cursor-pointer"
-                  >
-                    Save
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <>
-                {/* Text Message Content */}
-                {message.type === 'text' && (
-                  <p className="whitespace-pre-wrap leading-relaxed font-normal">
-                    {message.content}
-                  </p>
-                )}
+          {/* Render dedicated message type through modular MessageRenderer */}
+          <div className="relative group/bubble">
+            <MessageRenderer
+              message={message}
+              isCurrentUser={isCurrentUser}
+              onRetry={retryMessage}
+            />
 
-                {/* Voice Message Content */}
-                {message.type === 'voice' && message.voice_data && (
-                  <VoiceMessage
-                    duration={message.voice_data.duration}
-                    waveform={message.voice_data.waveform}
-                    isCurrentUser={isCurrentUser}
-                  />
-                )}
-
-                {/* Attachments Preview */}
-                {message.attachments && message.attachments.length > 0 && (
-                  <div className="space-y-1.5 mt-1.5">
-                    {message.attachments.map((att) => (
-                      <div
-                        key={att.id}
-                        className={`p-2.5 rounded-2xl flex items-center justify-between gap-3 border ${
-                          isCurrentUser
-                            ? 'bg-white/10 border-white/15 text-white'
-                            : 'bg-[var(--rovela-surface)] border border-[var(--rovela-border)] text-[var(--rovela-text-primary)]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
-                            <FileText className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold truncate leading-tight">
-                              {att.name}
-                            </p>
-                            <p className="text-[10px] opacity-70 mt-0.5">
-                              {att.size || 'Attachment'}
-                            </p>
-                          </div>
-                        </div>
-                        <a
-                          href={att.url}
-                          download={att.name}
-                          onClick={() => showToast('File downloaded', undefined, 'success')}
-                          className="p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all text-purple-400 shrink-0 cursor-pointer"
-                          title="Download"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
+            {/* Pinned / Starred subtle badge indicators */}
+            {(isStarred || isPinned) && (
+              <div
+                className={`absolute -bottom-2 ${
+                  isCurrentUser ? 'left-2' : 'right-2'
+                } flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[var(--rovela-surface)] border border-[var(--rovela-border)] shadow-xs select-none`}
+              >
+                {isStarred && <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />}
+                {isPinned && <Pin className="w-2.5 h-2.5 text-purple-500" />}
+              </div>
             )}
-
-            {/* Bubble Meta Footer: Time, Status, Edited Tag */}
-            <div
-              className={`flex items-center gap-1.5 mt-1 text-[10px] select-none ${
-                isCurrentUser ? 'text-purple-200 justify-end' : 'text-[var(--rovela-text-muted)] justify-end'
-              }`}
-            >
-              {message.is_edited && <span className="italic opacity-80">edited</span>}
-              {isStarred && <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />}
-              {isPinned && <Pin className="w-2.5 h-2.5 text-purple-400" />}
-              <span>{message.timestamp}</span>
-              {isCurrentUser && <StatusIndicator status={message.status} />}
-            </div>
           </div>
 
           {/* Reaction badges pill dock */}
@@ -473,7 +477,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <button
                 type="button"
                 onClick={() => setIsInfoOpen(false)}
-                className="p-1 rounded-lg text-[var(--rovela-text-muted)] hover:text-[var(--rovela-text-primary)]"
+                className="p-1 rounded-lg text-[var(--rovela-text-muted)] hover:text-[var(--rovela-text-primary)] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -485,7 +489,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </div>
               <div className="pt-2 flex justify-between">
                 <span className="text-[var(--rovela-text-secondary)]">Sent time</span>
-                <span className="font-semibold">{message.timestamp}</span>
+                <span className="font-semibold">
+                  {formatRelativeMessageTime(message.created_at).full} ({formatRelativeMessageTime(message.created_at).relative})
+                </span>
               </div>
               <div className="pt-2 flex justify-between">
                 <span className="text-[var(--rovela-text-secondary)]">Status</span>
@@ -499,7 +505,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <button
               type="button"
               onClick={() => setIsInfoOpen(false)}
-              className="w-full py-2 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 transition-colors"
+              className="w-full py-2 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 transition-colors cursor-pointer"
             >
               Done
             </button>
@@ -523,4 +529,3 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     </>
   );
 };
-

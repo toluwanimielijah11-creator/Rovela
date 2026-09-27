@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Avatar } from '../ui/Avatar';
 import {
   X,
   User,
@@ -159,11 +160,11 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
                   className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-between gap-3"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <img
+                    <Avatar
                       src={matchedUser.avatar_url}
-                      alt={matchedUser.name}
-                      className="w-10 h-10 rounded-full object-cover ring-2 ring-purple-400"
-                      referrerPolicy="no-referrer"
+                      name={matchedUser.name}
+                      size="sm"
+                      className="w-10 h-10 ring-2 ring-purple-400 rounded-2xl"
                     />
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">

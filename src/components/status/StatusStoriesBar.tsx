@@ -1,5 +1,6 @@
 import React from 'react';
 import { useChat } from '../../context/ChatContext';
+import { Avatar } from '../ui/Avatar';
 import { Plus } from 'lucide-react';
 
 interface StatusStoriesBarProps {
@@ -48,10 +49,11 @@ export const StatusStoriesBar: React.FC<StatusStoriesBarProps> = ({ onAddStatus 
                 : 'border border-dashed border-[var(--rovela-border)]'
             }`}
           >
-            <img
+            <Avatar
               src={currentUser.avatar_url}
-              alt={currentUser.name}
-              className="w-full h-full rounded-full object-cover ring-2 ring-[var(--rovela-surface)]"
+              name={currentUser.name}
+              size="md"
+              className="w-full h-full rounded-full ring-2 ring-[var(--rovela-surface)]"
             />
           </div>
 
@@ -91,10 +93,11 @@ export const StatusStoriesBar: React.FC<StatusStoriesBarProps> = ({ onAddStatus 
                   : 'border border-[var(--rovela-border)]'
               }`}
             >
-              <img
+              <Avatar
                 src={group.user_avatar}
-                alt={group.user_name}
-                className={`w-full h-full rounded-full object-cover ring-2 ring-[var(--rovela-surface)] ${
+                name={group.user_name}
+                size="md"
+                className={`w-full h-full rounded-full ring-2 ring-[var(--rovela-surface)] ${
                   group.has_unread ? '' : 'opacity-80'
                 }`}
               />

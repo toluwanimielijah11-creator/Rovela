@@ -7,6 +7,7 @@ import { BlockUserDialog } from '../modals/BlockUserDialog';
 import { ReportMessageDialog } from '../modals/ReportMessageDialog';
 import {
   X,
+  ArrowLeft,
   Bell,
   BellOff,
   Pin,
@@ -75,18 +76,29 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
 
   return (
     <>
-      <aside className="w-80 lg:w-88 h-full flex flex-col bg-[var(--rovela-surface)] border-l border-[var(--rovela-border)] select-none shrink-0 overflow-y-auto z-20">
+      <aside className="fixed inset-0 z-50 w-full h-[100dvh] md:relative md:inset-auto md:w-80 lg:w-88 md:h-full md:z-20 flex flex-col bg-[var(--rovela-surface)] border-l border-[var(--rovela-border)] select-none shrink-0 overflow-y-auto">
         {/* Top Header */}
-        <div className="p-4 border-b border-[var(--rovela-border)] flex items-center justify-between">
-          <h3 className="text-sm font-bold text-[var(--rovela-text-primary)]">
-            {conversation.type === 'group' ? 'Group Details' : 'Contact Information'}
-          </h3>
+        <div className="p-4 border-b border-[var(--rovela-border)] flex items-center justify-between bg-[var(--rovela-surface-secondary)] md:bg-transparent">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="md:hidden p-1.5 -ml-1 rounded-full text-[var(--rovela-text-secondary)] hover:bg-[var(--rovela-surface-hover)] cursor-pointer"
+              aria-label="Back to chat"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h3 className="text-sm font-bold text-[var(--rovela-text-primary)]">
+              {conversation.type === 'group' ? 'Group Details' : 'Contact Information'}
+            </h3>
+          </div>
           <IconButton
             icon={<X className="w-4 h-4" />}
             label="Close panel"
             variant="ghost"
             size="sm"
             onClick={onClose}
+            className="hidden md:flex"
           />
         </div>
 

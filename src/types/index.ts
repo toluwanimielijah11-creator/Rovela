@@ -5,10 +5,12 @@ export type PrivacyVisibility = 'everyone' | 'contacts' | 'nobody';
 export interface UserProfile {
   id: string;
   name: string;
+  display_name?: string; // alias for name
   username: string; // Rovela ID (@username)
   email: string;
   avatar_url: string;
   bio?: string;
+  about?: string; // alias for bio/about section
   status_text?: string;
   status_state: UserStatus;
   last_seen?: string;
@@ -17,6 +19,7 @@ export interface UserProfile {
   is_blocked?: boolean;
   role?: 'user' | 'admin';
   account_status?: 'active' | 'suspended' | 'blocked';
+  shared_groups?: string[];
   // Profile Privacy Controls (Requirement 7)
   photo_privacy?: PrivacyVisibility;
   about_privacy?: PrivacyVisibility;
@@ -58,7 +61,57 @@ export interface SharedMediaItem {
 }
 
 export type MessageStatus = 'sending' | 'delivered' | 'read' | 'failed';
-export type MessageType = 'text' | 'image' | 'file' | 'audio' | 'voice' | 'system';
+export type MessageType =
+  | 'text'
+  | 'image'
+  | 'video'
+  | 'file'
+  | 'document'
+  | 'audio'
+  | 'voice'
+  | 'voice_note'
+  | 'system'
+  | 'call'
+  | 'call_event';
+
+export type ResolvedMessageType =
+  | 'TEXT'
+  | 'IMAGE'
+  | 'VIDEO'
+  | 'VOICE_NOTE'
+  | 'DOCUMENT'
+  | 'SYSTEM'
+  | 'CALL_EVENT';
+
+export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE_NOTE' | 'DOCUMENT';
+
+export interface VoiceNoteData {
+  url?: string;
+  duration: number; // duration in seconds
+  waveform: number[]; // amplitude levels for visualization (0-100)
+  file_size?: string;
+  mime_type?: string;
+  is_loading?: boolean;
+  is_failed?: boolean;
+  is_listened?: boolean;
+  is_played?: boolean;
+}
+
+export interface VideoMessageData {
+  url: string;
+  thumbnail_url?: string;
+  duration?: number; // duration in seconds
+  width?: number;
+  height?: number;
+  caption?: string;
+  file_size?: string;
+  mime_type?: string;
+  upload_progress?: number; // 0-100
+  is_uploading?: boolean;
+  is_loading?: boolean;
+  is_failed?: boolean;
+  aspect_ratio?: 'portrait' | 'landscape' | 'square';
+}
 
 export interface MessageReaction {
   emoji: string;
@@ -93,12 +146,22 @@ export interface Message {
   };
   reactions?: MessageReaction[];
   attachments?: MessageAttachment[];
-  // Voice message enhancements
+  media_url?: string;
+  // Voice note data & legacy shortcuts
+  voice_data?: VoiceNoteData;
   voice_duration?: number; // duration in seconds
   voice_waveform?: number[]; // amplitude levels for visualization (0-100)
+  // Video message data
+  video_data?: VideoMessageData;
   // Forwarding enhancements
   is_forwarded?: boolean;
   forwarded_from?: string; // original sender name or chat title
+  // Call event enhancements
+  call_data?: {
+    type: 'voice' | 'video';
+    direction: 'incoming' | 'outgoing' | 'missed';
+    duration?: string;
+  };
 }
 
 export type ConversationType = 'direct' | 'group';
@@ -168,7 +231,8 @@ export type ActiveNavSection =
   | 'settings'
   | 'admin'
   | 'locked-chats'
-  | 'status';
+  | 'status'
+  | 'more';
 export type ChatFilter = 'all' | 'unread' | 'direct' | 'groups' | 'pinned' | 'archived';
 
 // ==========================================
@@ -176,6 +240,14 @@ export type ChatFilter = 'all' | 'unread' | 'direct' | 'groups' | 'pinned' | 'ar
 // ==========================================
 export type StatusType = 'IMAGE' | 'VIDEO' | 'TEXT';
 export type StatusPrivacy = 'contacts' | 'contacts_except' | 'only_share_with';
+export type StatusEditorMode = 'PREVIEW' | 'TEXT';
+
+export interface ActiveStatusEditorState {
+  mode: StatusEditorMode;
+  file?: File | null;
+  mediaUrl?: string;
+  mediaType?: StatusType;
+}
 
 export interface StatusViewerRecord {
   user_id: string;

@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useChat } from '../../context/ChatContext';
+import { useProfile } from '../../context/ProfileContext';
+import { useContact } from '../../context/ContactContext';
 import { UserStatus, PrivacyVisibility } from '../../types';
+import { Avatar } from '../ui/Avatar';
+import { ProfileQRCode } from './ProfileQRCode';
 import {
   Camera,
   Check,
@@ -26,6 +30,7 @@ import {
   UserCheck,
   ShieldCheck,
   Sliders,
+  ArrowLeft,
 } from 'lucide-react';
 
 export const ProfileView: React.FC = () => {
@@ -42,8 +47,19 @@ export const ProfileView: React.FC = () => {
     openMediaViewer,
   } = useChat();
 
-  const [statusText, setStatusText] = useState(currentUser.status_text || 'Available for collaboration');
-  const [statusState, setStatusState] = useState<UserStatus>(currentUser.status_state);
+  const { profile, copyRovelaId } = useProfile();
+  const { contacts } = useContact();
+  const [showQrModal, setShowQrModal] = useState(false);
+
+  const activeUser = {
+    ...currentUser,
+    ...profile,
+    display_name: profile.display_name || profile.name || currentUser.name,
+    about: profile.about || profile.bio || currentUser.bio,
+  };
+
+  const [statusText, setStatusText] = useState(activeUser.status_text || 'Available for collaboration');
+  const [statusState, setStatusState] = useState<UserStatus>(activeUser.status_state);
 
   const directCount = conversations.filter((c) => c.type === 'direct').length;
   const groupCount = conversations.filter((c) => c.type === 'group').length;
@@ -56,10 +72,7 @@ export const ProfileView: React.FC = () => {
   ];
 
   const handleCopyRovelaId = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(`@${currentUser.username}`);
-      showToast('Rovela ID copied to clipboard', `@${currentUser.username}`, 'success');
-    }
+    copyRovelaId();
   };
 
   const handleRemovePhoto = () => {
@@ -83,28 +96,39 @@ export const ProfileView: React.FC = () => {
     <div className="flex-1 flex flex-col h-full bg-[var(--rovela-surface)] overflow-y-auto select-none">
       {/* Top Header */}
       <div className="p-4 sm:p-6 border-b border-[var(--rovela-border)] bg-[var(--rovela-surface)] flex items-center justify-between shrink-0">
-        <div>
-          <h2 className="text-2xl font-extrabold tracking-tight text-[var(--rovela-text-primary)]">
-            My Profile
-          </h2>
-          <p className="text-xs text-[var(--rovela-text-secondary)] mt-0.5">
-            Manage your personal Rovela identity, privacy, and presence.
-          </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setActiveSection('more')}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-[var(--rovela-text-secondary)] hover:text-[var(--rovela-text-primary)] hover:bg-[var(--rovela-surface-hover)] cursor-pointer transition-colors"
+            title="Back to More"
+            aria-label="Back to More"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h2 className="text-2xl font-extrabold tracking-tight text-[var(--rovela-text-primary)]">
+              My Profile
+            </h2>
+            <p className="text-xs text-[var(--rovela-text-secondary)] mt-0.5">
+              Manage your personal Rovela identity, privacy, and presence.
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={openRovelaQr}
+            onClick={() => setShowQrModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-[var(--rovela-surface-secondary)] border border-[var(--rovela-border)] hover:bg-[var(--rovela-surface-hover)] text-[var(--rovela-text-primary)] text-xs font-bold transition-all cursor-pointer shadow-sm"
           >
             <QrCode className="w-4 h-4 text-purple-400" />
-            <span className="hidden sm:inline">My QR</span>
+            <span className="hidden sm:inline">Show QR</span>
           </button>
 
           <button
             type="button"
-            onClick={() => openShareProfile(currentUser)}
+            onClick={() => openShareProfile(activeUser)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-[var(--rovela-surface-secondary)] border border-[var(--rovela-border)] hover:bg-[var(--rovela-surface-hover)] text-[var(--rovela-text-primary)] text-xs font-bold transition-all cursor-pointer shadow-sm"
           >
             <Share2 className="w-4 h-4 text-purple-400" />
@@ -135,19 +159,19 @@ export const ProfileView: React.FC = () => {
                 type="button"
                 onClick={() =>
                   openMediaViewer({
-                    url: currentUser.avatar_url,
-                    title: currentUser.name,
-                    subtitle: `@${currentUser.username} • Profile Photo`,
+                    url: activeUser.avatar_url,
+                    title: activeUser.display_name || activeUser.name,
+                    subtitle: `@${activeUser.username} • Profile Photo`,
                   })
                 }
                 className="block cursor-pointer focus:outline-none"
                 title="View Full Profile Photo"
               >
-                <img
-                  src={currentUser.avatar_url}
-                  alt={currentUser.name}
-                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover ring-4 ring-purple-500/30 shadow-2xl group-hover:scale-105 transition-transform"
-                  referrerPolicy="no-referrer"
+                <Avatar
+                  src={activeUser.avatar_url}
+                  name={activeUser.display_name || activeUser.name}
+                  size="xl"
+                  className="w-24 h-24 sm:w-28 sm:h-28 text-2xl ring-4 ring-purple-500/30 shadow-2xl group-hover:scale-105 transition-transform rounded-full"
                 />
               </button>
 
@@ -165,7 +189,7 @@ export const ProfileView: React.FC = () => {
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
                 <h3 className="text-2xl font-black tracking-tight text-[var(--rovela-text-primary)]">
-                  {currentUser.name}
+                  {activeUser.display_name || activeUser.name}
                 </h3>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/25 flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-purple-400" />
@@ -176,7 +200,7 @@ export const ProfileView: React.FC = () => {
               {/* Rovela ID with Copy Button */}
               <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
                 <span className="text-sm font-bold text-purple-500">
-                  @{currentUser.username}
+                  @{activeUser.username}
                 </span>
                 <button
                   type="button"
@@ -189,12 +213,18 @@ export const ProfileView: React.FC = () => {
               </div>
 
               <p className="text-xs text-[var(--rovela-text-secondary)] font-medium mb-3">
-                {currentUser.phone || '+1 (555) 382-9901'} • {currentUser.email}
+                {activeUser.phone || '+1 (555) 382-9901'} • {activeUser.email}
               </p>
 
-              <p className="text-xs italic text-[var(--rovela-text-primary)] max-w-lg mb-4 leading-relaxed">
-                &quot;{currentUser.bio || 'Systems architect & software engineer building with Rovela.'}&quot;
-              </p>
+              {/* About Section */}
+              <div className="mb-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--rovela-text-muted)] block mb-1">
+                  About
+                </span>
+                <p className="text-xs text-[var(--rovela-text-primary)] max-w-lg leading-relaxed bg-[var(--rovela-surface)] p-3 rounded-2xl border border-[var(--rovela-border)]">
+                  {activeUser.about || activeUser.bio || 'Living in flow. Building meaningful human connections on Rovela.'}
+                </p>
+              </div>
 
               {/* Photo Options Pill */}
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1 pb-3">
@@ -274,14 +304,14 @@ export const ProfileView: React.FC = () => {
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={openRovelaQr}
+              onClick={() => setShowQrModal(true)}
               className="px-4 py-2 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md shadow-purple-900/30 transition-all cursor-pointer"
             >
               Show My QR
             </button>
             <button
               type="button"
-              onClick={() => openShareProfile(currentUser)}
+              onClick={() => openShareProfile(activeUser)}
               className="px-4 py-2 rounded-2xl bg-[var(--rovela-surface)] border border-[var(--rovela-border)] hover:bg-[var(--rovela-surface-hover)] text-[var(--rovela-text-primary)] text-xs font-bold transition-all cursor-pointer"
             >
               Share Link
@@ -480,6 +510,13 @@ export const ProfileView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Profile QR Code Modal */}
+      <ProfileQRCode
+        user={activeUser}
+        isOpen={showQrModal}
+        onClose={() => setShowQrModal(false)}
+      />
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Avatar } from '../ui/Avatar';
 import {
   X,
   User,
@@ -155,11 +156,11 @@ export const EditContactModal: React.FC<EditContactModalProps> = ({
             {/* Avatar & Source Selection Card */}
             <div className="p-4 rounded-2xl bg-[var(--rovela-surface-secondary)] border border-[var(--rovela-border)] flex flex-col sm:flex-row items-center gap-4">
               <div className="relative shrink-0">
-                <img
+                <Avatar
                   src={previewAvatar}
-                  alt={customDisplayName || user.name}
-                  className="w-20 h-20 rounded-full object-cover ring-2 ring-purple-500/30 shadow-md"
-                  referrerPolicy="no-referrer"
+                  name={customDisplayName || user.name}
+                  size="lg"
+                  className="w-20 h-20 text-xl ring-2 ring-purple-500/30 shadow-md rounded-2xl"
                 />
                 <button
                   type="button"

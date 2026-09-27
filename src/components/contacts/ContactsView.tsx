@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useChat } from '../../context/ChatContext';
+import { Avatar } from '../ui/Avatar';
 import { EmptyState } from '../common/EmptyState';
 import { ContactImporter } from './ContactImporter';
 import {
@@ -383,11 +384,11 @@ const ContactRow: React.FC<ContactRowProps> = ({
         className="flex items-center gap-3.5 min-w-0 flex-1 text-left cursor-pointer focus:outline-none"
       >
         <div className="relative shrink-0">
-          <img
+          <Avatar
             src={avatarUrl}
-            alt={displayName}
-            className="w-11 h-11 rounded-full object-cover ring-2 ring-purple-500/20"
-            referrerPolicy="no-referrer"
+            name={displayName}
+            size="md"
+            className="ring-2 ring-purple-500/20 rounded-2xl"
           />
           <span
             className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[var(--rovela-surface)] ${

@@ -12,6 +12,7 @@ import {
   Palette,
   Loader2,
   Check,
+  AlertCircle,
 } from 'lucide-react';
 import { StatusPrivacyModal } from './StatusPrivacyModal';
 
@@ -34,8 +35,37 @@ export const TextStatusEditor: React.FC<TextStatusEditorProps> = ({
   const [privacy, setPrivacy] = useState<StatusPrivacy>('contacts');
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState<boolean>(false);
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
+  const [showDiscardDialog, setShowDiscardDialog] = useState<boolean>(false);
+  const [viewportHeight, setViewportHeight] = useState<string>('100dvh');
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const updateHeight = () => {
+      if (window.visualViewport) {
+        setViewportHeight(`${window.visualViewport.height}px`);
+      } else {
+        setViewportHeight(`${window.innerHeight}px`);
+      }
+    };
+    updateHeight();
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateHeight);
+      return () => window.visualViewport?.removeEventListener('resize', updateHeight);
+    } else {
+      window.addEventListener('resize', updateHeight);
+      return () => window.removeEventListener('resize', updateHeight);
+    }
+  }, []);
 
   if (!isOpen) return null;
+
+  const handleBack = () => {
+    if (text.trim().length > 0) {
+      setShowDiscardDialog(true);
+    } else {
+      onClose();
+    }
+  };
 
   const currentBgPreset =
     STATUS_BACKGROUND_PRESETS.find((p) => p.id === selectedBgId) ||
@@ -95,16 +125,56 @@ export const TextStatusEditor: React.FC<TextStatusEditorProps> = ({
         onSave={(p) => setPrivacy(p)}
       />
 
+      {/* Discard Confirmation Dialog */}
+      {showDiscardDialog && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+          onClick={() => setShowDiscardDialog(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-[#16131F] border border-white/15 rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-150 text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-red-500/15 text-red-400 flex items-center justify-center mb-4">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-white">Discard Status?</h3>
+            <p className="text-xs text-white/70 mt-1.5 leading-relaxed">
+              If you go back now, your text update will not be saved.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowDiscardDialog(false)}
+                className="px-4 py-2.5 rounded-xl border border-white/15 text-xs font-semibold text-white/80 hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDiscardDialog(false);
+                  onClose();
+                }}
+                className="px-4 py-2.5 rounded-xl bg-red-500 text-white text-xs font-bold hover:bg-red-600 active:scale-95 transition-all shadow-md shadow-red-500/20 cursor-pointer"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         id="text-status-editor"
-        className={`fixed inset-0 z-50 flex flex-col transition-colors duration-300 ${currentBgPreset.bgClass}`}
-        style={currentBgPreset.styleObject}
+        className={`fixed inset-0 z-50 flex flex-col w-full transition-colors duration-300 overflow-hidden ${currentBgPreset.bgClass}`}
+        style={{ ...currentBgPreset.styleObject, height: viewportHeight }}
       >
         {/* Top Bar Controls */}
-        <div className="flex items-center justify-between p-4 z-20">
+        <div className="shrink-0 flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))] z-20">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleBack}
             className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md active:scale-95 transition-all cursor-pointer ${
               currentBgPreset.isDark
                 ? 'bg-black/30 text-white border border-white/10 hover:bg-black/50'
@@ -197,7 +267,7 @@ export const TextStatusEditor: React.FC<TextStatusEditorProps> = ({
         </div>
 
         {/* Center Editing Canvas */}
-        <div className="flex-1 flex items-center justify-center p-6 md:p-12 overflow-y-auto">
+        <div className="flex-1 min-h-0 flex items-center justify-center p-6 md:p-12 overflow-y-auto">
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -216,7 +286,7 @@ export const TextStatusEditor: React.FC<TextStatusEditorProps> = ({
         </div>
 
         {/* Bottom Bar: Palette + Emojis + Post */}
-        <div className="p-4 pb-6 z-20 flex flex-col gap-3">
+        <div className="shrink-0 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] z-20 flex flex-col gap-3">
           {/* Quick Emojis */}
           <div className="flex items-center justify-center gap-2 overflow-x-auto no-scrollbar py-1">
             {['✨', '💜', '🔥', '🎉', '☕', '💡', '💭', '🚀', '🙌', '🌸'].map((emoji) => (

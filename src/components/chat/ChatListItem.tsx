@@ -3,6 +3,7 @@ import { Conversation, UserStatus } from '../../types';
 import { Avatar } from '../ui/Avatar';
 import { useChat } from '../../context/ChatContext';
 import { BlockUserDialog } from '../modals/BlockUserDialog';
+import { formatRelativeMessageTime } from '../../utils/dateUtils';
 import {
   Pin,
   BellOff,
@@ -18,12 +19,20 @@ interface ChatListItemProps {
   conversation: Conversation;
   isActive: boolean;
   onClick: () => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  onLongPress?: () => void;
 }
 
 export const ChatListItem: React.FC<ChatListItemProps> = ({
   conversation,
   isActive,
   onClick,
+  isSelectionMode = false,
+  isSelected = false,
+  onToggleSelect,
+  onLongPress,
 }) => {
   const {
     currentUser,
@@ -44,6 +53,34 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+
+  const startLongPress = (e: React.TouchEvent | React.MouseEvent) => {
+    if (isSelectionMode) return;
+    if ('touches' in e && e.touches.length > 0) {
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    longPressTimerRef.current = setTimeout(() => {
+      onLongPress?.();
+    }, 450);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos.current || !e.touches[0]) return;
+    const diffX = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
+    const diffY = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
+    if (diffX > 10 || diffY > 10) {
+      cancelLongPress();
+    }
+  };
 
   // Close context dropdown on outside click
   useEffect(() => {
@@ -95,25 +132,64 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
   return (
     <>
       <div
+        onTouchStart={startLongPress}
+        onTouchEnd={cancelLongPress}
+        onTouchMove={handleTouchMove}
+        onMouseDown={startLongPress}
+        onMouseUp={cancelLongPress}
+        onMouseLeave={cancelLongPress}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onLongPress?.();
+        }}
         onClick={() => {
+          if (isSelectionMode) {
+            onToggleSelect?.();
+            return;
+          }
           setMenuOpen(false);
           onClick();
         }}
         className={`group relative flex items-center gap-3.5 p-3 sm:p-3.5 rounded-2xl cursor-pointer transition-all duration-150 select-none active:scale-[0.99] ${
-          isActive
+          isSelected
+            ? 'bg-purple-500/15 border border-purple-500/40 shadow-sm'
+            : isActive
             ? 'bg-[var(--rovela-surface-active)] border border-purple-500/35 shadow-md shadow-purple-950/20'
             : 'hover:bg-[var(--rovela-surface-hover)] border border-transparent'
         }`}
       >
+        {/* Selection Checkbox */}
+        {isSelectionMode && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.();
+            }}
+            className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all shrink-0 ${
+              isSelected
+                ? 'bg-purple-600 border-purple-600 text-white shadow-sm'
+                : 'border-[var(--rovela-border)] bg-[var(--rovela-surface-secondary)]'
+            }`}
+          >
+            {isSelected && <CheckCheck className="w-3 h-3 text-white" />}
+          </div>
+        )}
+
         {/* Active Left Border Accent */}
-        {isActive && (
+        {isActive && !isSelectionMode && (
           <span className="absolute left-1 top-3.5 bottom-3.5 w-1 rounded-full bg-gradient-to-b from-violet-600 to-purple-600 shadow-[0_0_8px_rgba(168,85,247,0.6)]" />
         )}
 
         {/* Avatar with Status - Clickable to open Profile Preview */}
         <div
-          onClick={handleAvatarClick}
-          className={conversation.type === 'direct' ? 'cursor-pointer hover:scale-105 transition-transform' : ''}
+          onClick={(e) => {
+            if (isSelectionMode) {
+              onToggleSelect?.();
+              return;
+            }
+            handleAvatarClick(e);
+          }}
+          className={conversation.type === 'direct' && !isSelectionMode ? 'cursor-pointer hover:scale-105 transition-transform' : ''}
           title={conversation.type === 'direct' ? `View @${partnerUser?.username || 'profile'}` : undefined}
         >
           <Avatar
@@ -148,9 +224,17 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
               {conversation.is_muted && (
                 <BellOff className="w-3 h-3 text-[var(--rovela-text-muted)]" title="Muted" />
               )}
-              <span className="text-[11px] font-medium text-[var(--rovela-text-muted)]">
-                {conversation.updated_at}
-              </span>
+              {(() => {
+                const timeObj = formatRelativeMessageTime(conversation.updated_at);
+                return (
+                  <span
+                    title={timeObj.tooltip || timeObj.full}
+                    className="text-[11px] font-medium text-[var(--rovela-text-muted)]"
+                  >
+                    {timeObj.relative}
+                  </span>
+                );
+              })()}
             </div>
           </div>
 

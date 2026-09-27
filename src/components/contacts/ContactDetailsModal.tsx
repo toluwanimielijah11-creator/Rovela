@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Avatar } from '../ui/Avatar';
 import {
   X,
   Edit3,
@@ -158,11 +159,11 @@ export const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
                 }
                 className="relative group cursor-pointer focus:outline-none"
               >
-                <img
+                <Avatar
                   src={avatarUrl}
-                  alt={displayName}
-                  className="w-24 h-24 rounded-full object-cover ring-4 ring-purple-500/30 shadow-xl group-hover:scale-105 transition-transform"
-                  referrerPolicy="no-referrer"
+                  name={displayName}
+                  size="xl"
+                  className="w-24 h-24 text-2xl ring-4 ring-purple-500/30 shadow-xl group-hover:scale-105 transition-transform"
                 />
                 <span
                   className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-[var(--rovela-surface)] ${
@@ -333,10 +334,12 @@ export const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
                       className="w-full p-2.5 rounded-xl bg-[var(--rovela-surface)] hover:bg-[var(--rovela-surface-hover)] border border-[var(--rovela-border)] flex items-center justify-between transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <img
+                        <Avatar
                           src={g.avatar_url}
-                          alt={g.title}
-                          className="w-8 h-8 rounded-full object-cover"
+                          name={g.title}
+                          size="sm"
+                          isGroup
+                          className="w-8 h-8 rounded-xl shrink-0"
                         />
                         <div className="text-left min-w-0">
                           <p className="text-xs font-bold text-[var(--rovela-text-primary)] truncate">
@@ -388,11 +391,13 @@ export const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
                       }
                       className="aspect-square rounded-xl overflow-hidden bg-black/20 hover:opacity-90 transition-opacity relative group cursor-pointer"
                     >
-                      <img
-                        src={media.thumbnail || media.url}
-                        alt={media.title}
-                        className="w-full h-full object-cover"
-                      />
+                      {(media.thumbnail || media.url) && (
+                        <img
+                          src={media.thumbnail || media.url}
+                          alt={media.title}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
                     </button>
                   ))}
               </div>

@@ -11,12 +11,15 @@ import { GroupsView } from '../groups/GroupsView';
 import { NotificationsView } from '../notifications/NotificationsView';
 import { ProfileView } from '../profile/ProfileView';
 import { SettingsView } from '../settings/SettingsView';
+import { MoreView } from '../more/MoreView';
 import { AdminDashboard } from '../admin/AdminDashboard';
 import { CallInterface } from '../calling/CallInterface';
 import { CallsView } from '../calling/CallsView';
 import { LockedChatsView } from '../security/LockedChatsView';
 import { StatusView } from '../status/StatusView';
 import { StatusViewerModal } from '../status/StatusViewerModal';
+import { MediaStatusEditor } from '../status/MediaStatusEditor';
+import { TextStatusEditor } from '../status/TextStatusEditor';
 import { NewChatModal } from '../modals/NewChatModal';
 import { CreateGroupModal } from '../modals/CreateGroupModal';
 import { MediaViewerModal } from '../profile/MediaViewerModal';
@@ -35,9 +38,16 @@ import { BlockUserDialog } from '../modals/BlockUserDialog';
 import { Message } from '../../types';
 import { RovelaLogo } from '../ui/RovelaLogo';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Users, Megaphone, X, Info, AlertTriangle, AlertCircle } from 'lucide-react';
+import { useAdmin } from '../../context/AdminContext';
 
 export const AppShell: React.FC = () => {
+  const { announcements } = useAdmin();
+  const [dismissedAnnouncements, setDismissedAnnouncements] = useState<string[]>([]);
+
+  const activeBannerAnnouncements = announcements.filter(
+    (a) => a.active && a.position === 'top-banner' && !dismissedAnnouncements.includes(a.id)
+  );
   const {
     activeSection,
     activeConversation,
@@ -51,6 +61,8 @@ export const AppShell: React.FC = () => {
     startCall,
     activeStatusView,
     closeStatusViewer,
+    activeStatusEditor,
+    closeStatusEditor,
     currentUser,
     activeMediaViewer,
     closeMediaViewer,
@@ -95,12 +107,34 @@ export const AppShell: React.FC = () => {
     }
   };
 
+  // =========================================================================
+  // 1. IMMERSIVE STATUS CREATION & PREVIEW (Bypasses AppShell completely)
+  // =========================================================================
+  if (activeStatusEditor) {
+    return (
+      <div id="status-immersive-root" className="fixed inset-0 w-full h-[100dvh] overflow-hidden bg-[#0D0B12] text-white select-none z-50">
+        {activeStatusEditor.mode === 'PREVIEW' ? (
+          <MediaStatusEditor
+            isOpen={true}
+            file={activeStatusEditor.file || null}
+            mediaUrl={activeStatusEditor.mediaUrl}
+            type={activeStatusEditor.mediaType || 'IMAGE'}
+            onClose={closeStatusEditor}
+            onPublished={closeStatusEditor}
+          />
+        ) : (
+          <TextStatusEditor
+            isOpen={true}
+            onClose={closeStatusEditor}
+            onPublished={closeStatusEditor}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex h-screen w-screen overflow-hidden bg-[var(--rovela-bg)] text-[var(--rovela-text-primary)] antialiased selection:bg-purple-500/30">
-      {/* Living Ambient Background Auras */}
-      <div className="pointer-events-none fixed -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-gradient-to-tr from-purple-600/10 via-violet-500/08 to-transparent blur-3xl ambient-aura-1 z-0" />
-      <div className="pointer-events-none fixed -bottom-40 -right-40 w-[550px] h-[550px] rounded-full bg-gradient-to-bl from-indigo-600/10 via-purple-700/08 to-transparent blur-3xl ambient-aura-2 z-0" />
-
       {/* Full-Screen Liquid Glass Call Interface */}
       <CallInterface />
 
@@ -211,10 +245,51 @@ export const AppShell: React.FC = () => {
       )}
 
       {/* Main Structural Dock (Desktop Sidebar / Mobile Bottom Nav) */}
-      <NavigationSidebar />
+      {!activeStatusView && !activeStatusEditor && <NavigationSidebar />}
 
-      {/* Primary Content Container */}
-      <main className="flex-1 flex overflow-hidden relative pb-16 md:pb-0 z-10" role="main">
+      {/* Main Content Column with Top Announcements */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative z-10">
+        {/* Global Active Top Announcements */}
+        {activeBannerAnnouncements.length > 0 && activeSection !== 'admin' && (
+          <div className="shrink-0 z-20 space-y-1">
+            {activeBannerAnnouncements.map((banner) => (
+              <div
+                key={banner.id}
+                className={`px-4 py-2 flex items-center justify-between text-xs font-medium border-b backdrop-blur-md transition-all ${
+                  banner.type === 'warning'
+                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-200'
+                    : banner.type === 'maintenance'
+                    ? 'bg-rose-500/15 border-rose-500/30 text-rose-200'
+                    : banner.type === 'success'
+                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-200'
+                    : 'bg-purple-500/15 border-purple-500/30 text-purple-200'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 truncate pr-2">
+                  <Megaphone className="w-4 h-4 shrink-0 text-purple-400" />
+                  <span className="font-bold text-white shrink-0">{banner.title}:</span>
+                  <span className="truncate">{banner.message}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDismissedAnnouncements((prev) => [...prev, banner.id])}
+                  className="p-1 rounded-md hover:bg-white/10 text-slate-300 hover:text-white cursor-pointer shrink-0"
+                  title="Dismiss Announcement"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Primary Content Container */}
+        <main
+          className={`flex-1 flex overflow-hidden relative ${
+            activeStatusView || activeStatusEditor ? 'pb-0' : 'pb-16 md:pb-0'
+          }`}
+          role="main"
+        >
         <AnimatePresence mode="wait">
           {activeSection === 'chats' && (
             <motion.div
@@ -276,7 +351,6 @@ export const AppShell: React.FC = () => {
                   <div className="hidden md:flex flex-col items-center justify-center h-full p-8 text-center select-none">
                     <div className="p-8 sm:p-10 rounded-3xl bg-[var(--rovela-surface)] max-w-md w-full shadow-2xl flex flex-col items-center border border-[var(--rovela-border)]">
                       <div className="relative mb-6">
-                        <div className="absolute inset-0 rounded-3xl bg-purple-500/20 blur-2xl pointer-events-none" />
                         <RovelaLogo size="lg" showTagline className="relative z-10" />
                       </div>
                       <h3 className="text-xl font-extrabold text-[var(--rovela-text-primary)] mb-2 tracking-tight">
@@ -431,6 +505,20 @@ export const AppShell: React.FC = () => {
             </motion.div>
           )}
 
+          {/* More Hub Section */}
+          {activeSection === 'more' && (
+            <motion.div
+              key="section-more"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
+              className="flex-1 flex overflow-hidden w-full h-full"
+            >
+              <MoreView />
+            </motion.div>
+          )}
+
           {/* Admin Dashboard Section */}
           {activeSection === 'admin' && (
             <motion.div
@@ -446,6 +534,7 @@ export const AppShell: React.FC = () => {
           )}
         </AnimatePresence>
       </main>
+      </div>
     </div>
   );
 };

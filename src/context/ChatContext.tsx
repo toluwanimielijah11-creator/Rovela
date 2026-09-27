@@ -20,6 +20,8 @@ import {
   StatusReactionRecord,
   UserContactRecord,
   PrivacyVisibility,
+  ActiveStatusEditorState,
+  StatusType,
 } from '../types';
 import {
   CURRENT_USER,
@@ -37,6 +39,7 @@ import {
 } from '../data/mockData';
 import { ToastMessage, ToastType } from '../components/ui/Toast';
 import { useToast } from '../hooks/useToast';
+import { formatMessagePreviewSnippet } from '../utils/mediaUtils';
 
 interface ChatContextType {
   currentUser: UserProfile;
@@ -70,6 +73,16 @@ interface ChatContextType {
   // Chat Actions
   sendMessage: (content: string, replyToMessage?: Message, attachments?: any[]) => void;
   sendVoiceMessage: (duration: number, waveform: number[]) => void;
+  sendVideoMessage: (videoData: {
+    url: string;
+    thumbnailUrl?: string;
+    duration?: number;
+    caption?: string;
+    fileSize?: string;
+    mimeType?: string;
+    aspectRatio?: 'portrait' | 'landscape' | 'square';
+  }) => void;
+  retryMessage: (messageId: string) => void;
   replyingTo: Message | null;
   setReplyingTo: (msg: Message | null) => void;
   addReaction: (messageId: string, emoji: string) => void;
@@ -143,6 +156,10 @@ interface ChatContextType {
   activeStatusView: { group: UserStatusGroup; initialIndex?: number } | null;
   openStatusViewer: (group: UserStatusGroup, initialIndex?: number) => void;
   closeStatusViewer: () => void;
+  activeStatusEditor: ActiveStatusEditorState | null;
+  openStatusMediaPreview: (file: File | null, type: 'IMAGE' | 'VIDEO', fallbackUrl?: string) => void;
+  openStatusTextEditor: () => void;
+  closeStatusEditor: () => void;
   addStatusItem: (item: Omit<StatusItem, 'id' | 'created_at' | 'expires_at' | 'viewers'>) => void;
   deleteStatusItem: (statusId: string) => void;
   markStatusGroupAsViewed: (userId: string) => void;
@@ -239,7 +256,7 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile>(CURRENT_USER);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [activeSection, setActiveSection] = useState<ActiveNavSection>('chats');
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [activeConversationId, setActiveConversationId] = useState<string | null>('conv-sarah');
@@ -342,15 +359,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const toggleTheme = () => {
-    setSettings((prev) => {
-      const nextTheme = prev.theme === 'dark' ? 'light' : 'dark';
-      showToast(
-        `Theme switched to ${nextTheme.charAt(0).toUpperCase() + nextTheme.slice(1)} Mode`,
-        undefined,
-        'info'
-      );
-      return { ...prev, theme: nextTheme };
-    });
+    const nextTheme = settings.theme === 'dark' ? 'light' : 'dark';
+    setSettings((prev) => ({ ...prev, theme: nextTheme }));
+    showToast(
+      `Theme switched to ${nextTheme.charAt(0).toUpperCase() + nextTheme.slice(1)} Mode`,
+      undefined,
+      'info'
+    );
   };
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
@@ -380,7 +395,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ? {
             id: replyToMessage.id,
             sender_name: replyToMessage.sender_name,
-            content: replyToMessage.content,
+            content: formatMessagePreviewSnippet(replyToMessage),
           }
         : undefined,
       attachments,
@@ -507,17 +522,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sender_id: currentUser.id,
       sender_name: currentUser.name,
       sender_avatar: currentUser.avatar_url,
-      content: `Voice message (${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')})`,
+      content: `Voice note (${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')})`,
       type: 'voice',
       status: 'sending',
       created_at: timestamp,
       voice_duration: duration,
       voice_waveform: waveform,
+      voice_data: {
+        duration,
+        waveform,
+      },
       reply_to: replyingTo
         ? {
             id: replyingTo.id,
             sender_name: replyingTo.sender_name,
-            content: replyingTo.content,
+            content: formatMessagePreviewSnippet(replyingTo),
           }
         : undefined,
     };
@@ -550,6 +569,138 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 600);
 
     showToast('Voice message sent', undefined, 'success');
+  };
+
+  // Send Video Message implementation
+  const sendVideoMessage = (videoData: {
+    url: string;
+    thumbnailUrl?: string;
+    duration?: number;
+    caption?: string;
+    fileSize?: string;
+    mimeType?: string;
+    aspectRatio?: 'portrait' | 'landscape' | 'square';
+  }) => {
+    if (!activeConversationId) return;
+
+    const messageId = `msg-video-${Date.now()}`;
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const newVideoMessage: Message = {
+      id: messageId,
+      conversation_id: activeConversationId,
+      sender_id: currentUser.id,
+      sender_name: currentUser.name,
+      sender_avatar: currentUser.avatar_url,
+      content: videoData.caption || 'Video',
+      type: 'video',
+      status: 'sending',
+      created_at: timestamp,
+      video_data: {
+        url: videoData.url,
+        thumbnail_url: videoData.thumbnailUrl,
+        duration: videoData.duration || 18,
+        caption: videoData.caption,
+        file_size: videoData.fileSize || '6.8 MB',
+        mime_type: videoData.mimeType || 'video/mp4',
+        aspect_ratio: videoData.aspectRatio || 'landscape',
+        upload_progress: 25,
+        is_uploading: true,
+      },
+      reply_to: replyingTo
+        ? {
+            id: replyingTo.id,
+            sender_name: replyingTo.sender_name,
+            content: formatMessagePreviewSnippet(replyingTo),
+          }
+        : undefined,
+    };
+
+    if (replyingTo) {
+      setReplyingTo(null);
+    }
+
+    setMessages((prev) => ({
+      ...prev,
+      [activeConversationId]: [...(prev[activeConversationId] || []), newVideoMessage],
+    }));
+
+    setConversations((prev) => {
+      const target = prev.find((c) => c.id === activeConversationId);
+      if (!target) return prev;
+      return [
+        { ...target, last_message: newVideoMessage, updated_at: timestamp },
+        ...prev.filter((c) => c.id !== activeConversationId),
+      ];
+    });
+
+    // Simulate realistic upload progression: 25% -> 70% -> 100% (Sent)
+    setTimeout(() => {
+      setMessages((prev) => ({
+        ...prev,
+        [activeConversationId]: (prev[activeConversationId] || []).map((m) =>
+          m.id === messageId
+            ? {
+                ...m,
+                video_data: m.video_data
+                  ? { ...m.video_data, upload_progress: 72 }
+                  : undefined,
+              }
+            : m
+        ),
+      }));
+    }, 450);
+
+    setTimeout(() => {
+      setMessages((prev) => ({
+        ...prev,
+        [activeConversationId]: (prev[activeConversationId] || []).map((m) =>
+          m.id === messageId
+            ? {
+                ...m,
+                status: 'read',
+                video_data: m.video_data
+                  ? { ...m.video_data, upload_progress: 100, is_uploading: false }
+                  : undefined,
+              }
+            : m
+        ),
+      }));
+      showToast('Video message sent', undefined, 'success');
+    }, 900);
+  };
+
+  // Retry Failed Message implementation
+  const retryMessage = (messageId: string) => {
+    if (!activeConversationId) return;
+
+    setMessages((prev) => ({
+      ...prev,
+      [activeConversationId]: (prev[activeConversationId] || []).map((m) => {
+        if (m.id !== messageId) return m;
+        return {
+          ...m,
+          status: 'sending',
+          voice_data: m.voice_data ? { ...m.voice_data, is_failed: false } : undefined,
+          video_data: m.video_data ? { ...m.video_data, is_failed: false, is_uploading: true } : undefined,
+        };
+      }),
+    }));
+
+    setTimeout(() => {
+      setMessages((prev) => ({
+        ...prev,
+        [activeConversationId]: (prev[activeConversationId] || []).map((m) => {
+          if (m.id !== messageId) return m;
+          return {
+            ...m,
+            status: 'read',
+            video_data: m.video_data ? { ...m.video_data, is_uploading: false, upload_progress: 100 } : undefined,
+          };
+        }),
+      }));
+      showToast('Message sent', undefined, 'success');
+    }, 800);
   };
 
   const addReaction = (messageId: string, emoji: string) => {
@@ -970,21 +1121,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const toggleCallMute = () => {
-    setActiveCall((prev) => {
-      if (!prev) return null;
-      const nextMuted = !prev.is_muted;
-      showToast(nextMuted ? 'Microphone muted' : 'Microphone unmuted', undefined, 'info');
-      return { ...prev, is_muted: nextMuted };
-    });
+    if (!activeCall) return;
+    const nextMuted = !activeCall.is_muted;
+    setActiveCall((prev) => (prev ? { ...prev, is_muted: nextMuted } : null));
+    showToast(nextMuted ? 'Microphone muted' : 'Microphone unmuted', undefined, 'info');
   };
 
   const toggleCallVideo = () => {
-    setActiveCall((prev) => {
-      if (!prev) return null;
-      const nextVideo = !prev.is_video_enabled;
-      showToast(nextVideo ? 'Camera turned on' : 'Camera turned off', undefined, 'info');
-      return { ...prev, is_video_enabled: nextVideo };
-    });
+    if (!activeCall) return;
+    const nextVideo = !activeCall.is_video_enabled;
+    setActiveCall((prev) => (prev ? { ...prev, is_video_enabled: nextVideo } : null));
+    showToast(nextVideo ? 'Camera turned on' : 'Camera turned off', undefined, 'info');
   };
 
   const toggleCallSpeaker = () => {
@@ -1122,27 +1269,25 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateUserProfile = (updates: Partial<UserProfile>) => {
-    setCurrentUser((prev) => {
-      const updated = { ...prev, ...updates };
-      setUsers((prevUsers) => prevUsers.map((u) => (u.id === updated.id ? updated : u)));
-      setStatusGroups((prevGroups) =>
-        prevGroups.map((g) =>
-          g.user_id === updated.id
-            ? {
-                ...g,
+    const updated = { ...currentUser, ...updates };
+    setCurrentUser(updated);
+    setUsers((prevUsers) => prevUsers.map((u) => (u.id === updated.id ? updated : u)));
+    setStatusGroups((prevGroups) =>
+      prevGroups.map((g) =>
+        g.user_id === updated.id
+          ? {
+              ...g,
+              user_name: updated.name,
+              user_avatar: updated.avatar_url,
+              items: g.items.map((it) => ({
+                ...it,
                 user_name: updated.name,
                 user_avatar: updated.avatar_url,
-                items: g.items.map((it) => ({
-                  ...it,
-                  user_name: updated.name,
-                  user_avatar: updated.avatar_url,
-                })),
-              }
-            : g
-        )
-      );
-      return updated;
-    });
+              })),
+            }
+          : g
+      )
+    );
     showToast('Profile updated successfully', undefined, 'success');
   };
 
@@ -1394,8 +1539,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = (email: string) => {
+    const clean = email.trim().toLowerCase();
+    const matched = users.find(
+      (u) =>
+        u.email.toLowerCase() === clean ||
+        u.username.toLowerCase() === clean.replace('@', '')
+    );
+    if (matched) {
+      setCurrentUser(matched);
+    }
     setIsAuthenticated(true);
-    showToast(`Welcome back, ${currentUser.name}!`, 'Logged into Rovela', 'success');
+    showToast(`Welcome back, ${matched ? matched.name : currentUser.name}!`, 'Logged into Rovela', 'success');
     return true;
   };
 
@@ -1444,6 +1598,28 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     group: UserStatusGroup;
     initialIndex?: number;
   } | null>(null);
+
+  const [activeStatusEditor, setActiveStatusEditor] = useState<ActiveStatusEditorState | null>(null);
+
+  const openStatusMediaPreview = (file: File | null, type: 'IMAGE' | 'VIDEO', fallbackUrl?: string) => {
+    setActiveStatusEditor({
+      mode: 'PREVIEW',
+      file,
+      mediaType: type,
+      mediaUrl: fallbackUrl,
+    });
+  };
+
+  const openStatusTextEditor = () => {
+    setActiveStatusEditor({
+      mode: 'TEXT',
+      mediaType: 'TEXT',
+    });
+  };
+
+  const closeStatusEditor = () => {
+    setActiveStatusEditor(null);
+  };
 
   // Sync to localStorage
   const saveStatusGroups = (groups: UserStatusGroup[]) => {
@@ -1581,28 +1757,28 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const toggleMuteUserStatus = (userId: string) => {
+    const targetGroup = statusGroups.find((g) => g.user_id === userId);
+    const targetName = targetGroup?.user_name;
+    const isNowMuted = !targetGroup?.is_muted;
+
     setStatusGroups((prev) => {
-      let targetName = '';
-      let isNowMuted = false;
       const nextGroups = prev.map((g) => {
         if (g.user_id === userId) {
-          targetName = g.user_name;
-          isNowMuted = !g.is_muted;
           return { ...g, is_muted: isNowMuted };
         }
         return g;
       });
-
       saveStatusGroups(nextGroups);
-      if (targetName) {
-        showToast(
-          isNowMuted ? `Muted ${targetName}'s updates` : `Unmuted ${targetName}'s updates`,
-          undefined,
-          'info'
-        );
-      }
       return nextGroups;
     });
+
+    if (targetName) {
+      showToast(
+        isNowMuted ? `Muted ${targetName}'s updates` : `Unmuted ${targetName}'s updates`,
+        undefined,
+        'info'
+      );
+    }
   };
 
   const reactToStatus = (userId: string, statusId: string, emoji: string) => {
@@ -1692,6 +1868,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         removeToast,
         sendMessage,
         sendVoiceMessage,
+        sendVideoMessage,
+        retryMessage,
         replyingTo,
         setReplyingTo,
         addReaction,
@@ -1747,6 +1925,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeStatusView,
         openStatusViewer,
         closeStatusViewer,
+        activeStatusEditor,
+        openStatusMediaPreview,
+        openStatusTextEditor,
+        closeStatusEditor,
         addStatusItem,
         deleteStatusItem,
         markStatusGroupAsViewed,

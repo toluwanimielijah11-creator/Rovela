@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, MessageAttachment } from '../../types';
 import { useChat } from '../../context/ChatContext';
 import { IconButton } from '../ui/IconButton';
+import { VoiceRecorderBar } from './media/VoiceRecorderBar';
+import { VideoPreviewModal } from './media/VideoPreviewModal';
+import { EmojiAndStickerDrawer } from './EmojiAndStickerDrawer';
 import {
   Paperclip,
   Smile,
@@ -9,9 +12,8 @@ import {
   X,
   FileText,
   Image as ImageIcon,
+  Video,
   Mic,
-  Trash2,
-  Check,
 } from 'lucide-react';
 
 interface MessageComposerProps {
@@ -20,22 +22,35 @@ interface MessageComposerProps {
   onSent?: () => void;
 }
 
+interface VideoPreviewState {
+  url: string;
+  name: string;
+  size: string;
+  duration?: number;
+}
+
 export const MessageComposer: React.FC<MessageComposerProps> = ({
   replyingTo,
   onCancelReply,
   onSent,
 }) => {
-  const { sendMessage, sendVoiceMessage, settings, showToast } = useChat();
+  const {
+    sendMessage,
+    sendVoiceMessage,
+    sendVideoMessage,
+    settings,
+    showToast,
+  } = useChat();
+
   const [text, setText] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<MessageAttachment[]>([]);
   const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [videoPreviewData, setVideoPreviewData] = useState<VideoPreviewState | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
-  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const emojis = ['😀', '😍', '🔥', '🚀', '💜', '👍', '🎉', '✨', '🙌', '💯', '👏', '⚡', '💡', '👌', '❤️', '🤩', '👋', '☕', '🌟', '🎯'];
@@ -67,26 +82,6 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showEmojiPicker]);
 
-  // Voice recording timer
-  useEffect(() => {
-    if (isRecording) {
-      setRecordingSeconds(0);
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingSeconds((s) => s + 1);
-      }, 1000);
-    } else {
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-        recordingTimerRef.current = null;
-      }
-    }
-    return () => {
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-      }
-    };
-  }, [isRecording]);
-
   const handleSend = () => {
     if (!text.trim() && pendingAttachments.length === 0) return;
 
@@ -108,14 +103,24 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      if (settings.enterToSend) {
+      if (settings?.enterToSend) {
         e.preventDefault();
         handleSend();
       }
     }
   };
 
-  const handleAddMockAttachment = (type: 'pdf' | 'img') => {
+  const handleAddMockAttachment = (type: 'pdf' | 'img' | 'video') => {
+    if (type === 'video') {
+      setVideoPreviewData({
+        url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+        name: 'rovela-demo.mp4',
+        size: '6.4 MB',
+        duration: 15,
+      });
+      return;
+    }
+
     const newAtt: MessageAttachment =
       type === 'pdf'
         ? {
@@ -140,6 +145,20 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Check if video file
+    if (file.type.startsWith('video/')) {
+      const videoUrl = URL.createObjectURL(file);
+      setVideoPreviewData({
+        url: videoUrl,
+        name: file.name,
+        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+        duration: 18,
+      });
+      e.target.value = '';
+      return;
+    }
+
     const isImg = file.type.startsWith('image/');
     const newAtt: MessageAttachment = {
       id: `att-${Date.now()}`,
@@ -149,7 +168,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
       size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
     };
     setPendingAttachments((prev) => [...prev, newAtt]);
-    showToast(isImg ? 'Photo uploaded' : 'File uploaded', undefined, 'success');
+    showToast(isImg ? 'Photo attached' : 'File attached', undefined, 'success');
     e.target.value = '';
   };
 
@@ -158,55 +177,51 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
     inputRef.current?.focus();
   };
 
-  // Voice message handlers
-  const startRecording = () => {
-    setIsRecording(true);
-  };
-
-  const cancelRecording = () => {
-    setIsRecording(false);
-    setRecordingSeconds(0);
-  };
-
-  const finishAndSendVoice = () => {
-    const duration = Math.max(2, recordingSeconds);
-    // Generate realistic waveform
-    const sampleWaveform = Array.from({ length: 18 }, () => Math.floor(Math.random() * 70) + 25);
-    sendVoiceMessage(duration, sampleWaveform);
-    setIsRecording(false);
-    setRecordingSeconds(0);
+  const handleSendSticker = (stickerUrl: string, name: string) => {
+    sendMessage(
+      '',
+      replyingTo || undefined,
+      [
+        {
+          id: `att-${Date.now()}`,
+          name: name || 'Sticker',
+          type: 'image/png',
+          url: stickerUrl,
+          size: '150 KB',
+        },
+      ]
+    );
+    setShowEmojiPicker(false);
     onCancelReply();
     onSent?.();
   };
 
-  const formatRecTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+  const handleConfirmVideoSend = (caption: string) => {
+    if (!videoPreviewData) return;
+
+    sendVideoMessage({
+      url: videoPreviewData.url,
+      caption: caption.trim() || undefined,
+      duration: videoPreviewData.duration || 18,
+      fileSize: videoPreviewData.size,
+    });
+
+    setVideoPreviewData(null);
+    onCancelReply();
+    onSent?.();
   };
 
   const canSend = text.trim().length > 0 || pendingAttachments.length > 0;
 
   return (
     <div className="relative p-3 sm:p-4 bg-[var(--rovela-surface)] border-t border-[var(--rovela-border)] shrink-0">
-      {/* Emoji Picker Popover */}
-      {showEmojiPicker && (
-        <div
-          ref={emojiPickerRef}
-          className="absolute bottom-full left-4 mb-2 p-3 rounded-2xl bg-[var(--rovela-surface)] border border-[var(--rovela-border)] shadow-2xl z-30 flex flex-wrap gap-1.5 max-w-[280px] animate-in fade-in zoom-in-95 duration-150"
-        >
-          {emojis.map((emoji) => (
-            <button
-              key={emoji}
-              type="button"
-              onClick={() => handleSelectEmoji(emoji)}
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-lg hover:bg-[var(--rovela-surface-hover)] hover:scale-125 active:scale-95 transition-transform cursor-pointer"
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Tabbed Emoji, Sticker & GIF Drawer */}
+      <EmojiAndStickerDrawer
+        isOpen={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onSelectEmoji={handleSelectEmoji}
+        onSendSticker={handleSendSticker}
+      />
 
       {/* Replying Banner */}
       {replyingTo && (
@@ -255,54 +270,21 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         </div>
       )}
 
-      {/* Voice Recording Active Mode */}
+      {/* Native Voice Recorder Bar */}
       {isRecording ? (
-        <div className="flex items-center justify-between gap-3 bg-rose-500/10 dark:bg-rose-950/30 border border-rose-500/30 rounded-2xl p-2 sm:p-2.5 animate-in fade-in">
-          <div className="flex items-center gap-3">
-            {/* Pulsing record light */}
-            <div className="w-3 h-3 rounded-full bg-rose-500 animate-ping ml-1" />
-            <span className="text-xs font-bold text-rose-600 dark:text-rose-400 font-mono">
-              Recording · {formatRecTime(recordingSeconds)}
-            </span>
-
-            {/* Simulated live waveform pulse */}
-            <div className="hidden sm:flex items-center gap-1 h-5 ml-2">
-              {[12, 20, 32, 24, 16, 28, 36, 18, 22].map((h, i) => (
-                <div
-                  key={i}
-                  style={{ height: `${h}px` }}
-                  className="w-1 bg-rose-500 rounded-full animate-pulse"
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Cancel record button */}
-            <button
-              type="button"
-              onClick={cancelRecording}
-              className="p-2 rounded-xl text-[var(--rovela-text-secondary)] hover:text-rose-600 hover:bg-rose-500/15 transition-all cursor-pointer"
-              title="Cancel recording"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-
-            {/* Send voice note */}
-            <button
-              type="button"
-              onClick={finishAndSendVoice}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white text-xs font-bold shadow-md shadow-purple-950/20 active:scale-95 cursor-pointer"
-            >
-              <Check className="w-3.5 h-3.5" />
-              <span>Send Audio</span>
-            </button>
-          </div>
-        </div>
+        <VoiceRecorderBar
+          onCancel={() => setIsRecording(false)}
+          onSend={(duration, waveform) => {
+            sendVoiceMessage(duration, waveform);
+            setIsRecording(false);
+            onCancelReply();
+            onSent?.();
+          }}
+        />
       ) : (
         /* Normal Composer Box */
         <div className="flex items-end gap-2 bg-[var(--rovela-surface-secondary)] border border-[var(--rovela-border)] rounded-2xl p-1.5 sm:p-2 focus-within:border-purple-500/40 focus-within:ring-2 focus-within:ring-purple-500/20 transition-all">
-          {/* Attachment & Emoji options (Section 12: LEFT: Attach, Emoji) */}
+          {/* Attachment & Emoji options */}
           <div className="relative flex items-center gap-0.5">
             {/* 📎 Attach Button with popover */}
             <div className="relative">
@@ -317,14 +299,14 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               {showAttachMenu && (
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute bottom-11 left-0 z-30 w-44 rounded-2xl bg-[var(--rovela-surface)] border border-[var(--rovela-border)] shadow-2xl p-1.5 text-xs text-[var(--rovela-text-primary)] animate-in fade-in zoom-in-95 duration-100 space-y-0.5"
+                  className="absolute bottom-11 left-0 z-30 w-48 rounded-2xl bg-[var(--rovela-surface)] border border-[var(--rovela-border)] shadow-2xl p-1.5 text-xs text-[var(--rovela-text-primary)] animate-in fade-in zoom-in-95 duration-100 space-y-0.5"
                 >
                   <button
                     type="button"
                     onClick={() => {
                       setShowAttachMenu(false);
                       if (fileInputRef.current) {
-                        fileInputRef.current.accept = 'image/*,video/*';
+                        fileInputRef.current.accept = 'image/*';
                         fileInputRef.current.click();
                       } else {
                         handleAddMockAttachment('img');
@@ -333,8 +315,26 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                     className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 hover:bg-[var(--rovela-surface-hover)] text-left transition-colors cursor-pointer"
                   >
                     <ImageIcon className="w-4 h-4 text-purple-500" />
-                    <span>Photos & Videos</span>
+                    <span>Photo</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAttachMenu(false);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.accept = 'video/*';
+                        fileInputRef.current.click();
+                      } else {
+                        handleAddMockAttachment('video');
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 hover:bg-[var(--rovela-surface-hover)] text-left transition-colors cursor-pointer"
+                  >
+                    <Video className="w-4 h-4 text-violet-500" />
+                    <span>Video Message</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -384,7 +384,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             className="flex-1 max-h-32 min-h-[36px] py-1.5 px-2 bg-transparent text-sm text-[var(--rovela-text-primary)] placeholder-[var(--rovela-text-muted)] focus:outline-none resize-none leading-relaxed"
           />
 
-          {/* RIGHT: Voice Note OR Send (Section 12) */}
+          {/* RIGHT: Voice Note OR Send */}
           {canSend ? (
             <button
               type="button"
@@ -398,7 +398,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           ) : (
             <button
               type="button"
-              onClick={startRecording}
+              onClick={() => setIsRecording(true)}
               className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center transition-all duration-150 shrink-0 cursor-pointer text-[var(--rovela-text-secondary)] hover:text-purple-600 dark:hover:text-purple-400 hover:bg-[var(--rovela-surface-hover)] active:scale-95"
               title="Record voice note"
               aria-label="Record voice note"
@@ -407,6 +407,19 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             </button>
           )}
         </div>
+      )}
+
+      {/* Video Pre-Send Preview Modal with Captions */}
+      {videoPreviewData && (
+        <VideoPreviewModal
+          isOpen={true}
+          onClose={() => setVideoPreviewData(null)}
+          videoUrl={videoPreviewData.url}
+          videoName={videoPreviewData.name}
+          fileSize={videoPreviewData.size}
+          duration={videoPreviewData.duration}
+          onSend={handleConfirmVideoSend}
+        />
       )}
     </div>
   );

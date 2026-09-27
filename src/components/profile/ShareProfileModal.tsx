@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Copy, Share2, QrCode, MessageSquare, Check, ShieldCheck } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { useChat } from '../../context/ChatContext';
+import { Avatar } from '../ui/Avatar';
 
 interface ShareProfileModalProps {
   isOpen: boolean;
@@ -77,11 +78,11 @@ export const ShareProfileModal: React.FC<ShareProfileModalProps> = ({
           {/* Profile Card Preview */}
           <div className="p-6 flex flex-col items-center text-center space-y-4">
             <div className="relative">
-              <img
+              <Avatar
                 src={user.avatar_url}
-                alt={user.name}
-                className="w-20 h-20 rounded-full object-cover ring-4 ring-purple-500/30 shadow-lg"
-                referrerPolicy="no-referrer"
+                name={user.name}
+                size="lg"
+                className="w-20 h-20 text-xl rounded-full ring-4 ring-purple-500/30 shadow-lg"
               />
               <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[var(--rovela-surface)]" />
             </div>

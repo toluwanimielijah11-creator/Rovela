@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Avatar } from '../ui/Avatar';
 import {
   X,
+  ArrowLeft,
   Copy,
   MessageSquare,
   Phone,
@@ -133,14 +135,15 @@ export const OtherUserProfileModal: React.FC<OtherUserProfileModalProps> = ({
           className="w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-xl bg-[var(--rovela-surface)] border-0 sm:border border-[var(--rovela-border)] sm:rounded-[32px] overflow-hidden shadow-2xl flex flex-col"
         >
           {/* Top App Bar */}
-          <header className="px-6 py-4 border-b border-[var(--rovela-border)] flex items-center justify-between bg-[var(--rovela-surface-secondary)] z-10 shrink-0">
+          <header className="px-5 sm:px-6 py-4 pt-[max(1rem,env(safe-area-inset-top))] border-b border-[var(--rovela-border)] flex items-center justify-between bg-[var(--rovela-surface-secondary)] z-10 shrink-0">
             <button
               type="button"
               onClick={onClose}
               className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--rovela-text-secondary)] hover:bg-[var(--rovela-surface-hover)] transition-colors cursor-pointer"
               aria-label="Back"
             >
-              <X className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5 sm:hidden" />
+              <X className="w-5 h-5 hidden sm:block" />
             </button>
 
             <h2 className="text-sm font-extrabold text-[var(--rovela-text-primary)]">
@@ -248,11 +251,11 @@ export const OtherUserProfileModal: React.FC<OtherUserProfileModalProps> = ({
                       : 'ring-4 ring-purple-500/30'
                   }`}
                 >
-                  <img
+                  <Avatar
                     src={avatarUrl}
-                    alt={user.name}
-                    className="w-full h-full rounded-full object-cover shadow-xl group-hover:scale-105 transition-transform"
-                    referrerPolicy="no-referrer"
+                    name={user.name}
+                    size="xl"
+                    className="w-full h-full text-2xl shadow-xl group-hover:scale-105 transition-transform rounded-full"
                   />
                 </div>
                 <span
@@ -311,10 +314,11 @@ export const OtherUserProfileModal: React.FC<OtherUserProfileModalProps> = ({
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-full p-0.5 bg-gradient-to-tr from-purple-400 to-pink-400 shrink-0">
-                      <img
+                      <Avatar
                         src={avatarUrl}
-                        alt="Status thumb"
-                        className="w-full h-full rounded-full object-cover"
+                        name={user.name}
+                        size="sm"
+                        className="w-full h-full rounded-full"
                       />
                     </div>
                     <div className="min-w-0">
@@ -448,11 +452,13 @@ export const OtherUserProfileModal: React.FC<OtherUserProfileModalProps> = ({
                             }
                             className="aspect-square rounded-xl overflow-hidden bg-black/20 hover:opacity-90 transition-opacity cursor-pointer group relative"
                           >
-                            <img
-                              src={item.thumbnail || item.url}
-                              alt={item.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            />
+                            {(item.thumbnail || item.url) && (
+                              <img
+                                src={item.thumbnail || item.url}
+                                alt={item.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              />
+                            )}
                           </button>
                         ))}
                     </div>
@@ -478,11 +484,13 @@ export const OtherUserProfileModal: React.FC<OtherUserProfileModalProps> = ({
                             }
                             className="relative aspect-video rounded-xl overflow-hidden bg-black/40 hover:opacity-90 transition-opacity cursor-pointer group"
                           >
-                            <img
-                              src={item.thumbnail || item.url}
-                              alt={item.title}
-                              className="w-full h-full object-cover"
-                            />
+                            {(item.thumbnail || item.url) && (
+                              <img
+                                src={item.thumbnail || item.url}
+                                alt={item.title}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
                               <div className="w-8 h-8 rounded-full bg-white/80 text-black flex items-center justify-center shadow-lg">
                                 <Play className="w-4 h-4 fill-current ml-0.5" />
@@ -590,10 +598,12 @@ export const OtherUserProfileModal: React.FC<OtherUserProfileModalProps> = ({
                       className="w-full p-2.5 rounded-xl bg-[var(--rovela-surface)] hover:bg-[var(--rovela-surface-hover)] border border-[var(--rovela-border)] flex items-center justify-between transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <img
+                        <Avatar
                           src={g.avatar_url}
-                          alt={g.title}
-                          className="w-8 h-8 rounded-full object-cover"
+                          name={g.title}
+                          size="sm"
+                          isGroup
+                          className="w-8 h-8 rounded-xl shrink-0"
                         />
                         <div className="text-left min-w-0">
                           <p className="text-xs font-bold text-[var(--rovela-text-primary)] truncate">
