@@ -32,38 +32,19 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ onOpenCreateGroup }) => 
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'my' | 'discover'>('my');
 
-  // Discoverable mock public groups for collaborative exploration
-  const [discoverableGroups, setDiscoverableGroups] = useState([
-    {
-      id: 'disc-1',
-      title: 'Distributed Systems & Crypto',
-      topic: 'Infrastructure & Protocols',
-      member_count: 1420,
-      avatar_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',
-      description: 'Discussions around consensus mechanisms, distributed state machines, and cryptography.',
-      is_joined: false,
-    },
-    {
-      id: 'disc-2',
-      title: 'Liquid Glass UI Designers',
-      topic: 'Design & Aesthetics',
-      member_count: 854,
-      avatar_url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=100&auto=format&fit=crop&q=80',
-      description: 'Showcasing modern frosted glass, blur shaders, and dark obsidian aesthetics.',
-      is_joined: false,
-    },
-    {
-      id: 'disc-3',
-      title: 'Applied AI & Agents',
-      topic: 'Artificial Intelligence',
-      member_count: 2310,
-      avatar_url: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=100&auto=format&fit=crop&q=80',
-      description: 'Autonomous agents, prompt engineering, and modern multimodal generative apps.',
-      is_joined: false,
-    },
-  ]);
-
+  // Real group conversations
   const myGroups = conversations.filter((c) => c.type === 'group');
+  const [joinedGroupIds, setJoinedGroupIds] = useState<Set<string>>(new Set());
+
+  const discoverableGroups = myGroups.map((c) => ({
+    id: c.id,
+    title: c.title,
+    topic: c.description || 'Public Channel',
+    member_count: Math.max(1, c.participant_ids?.length || 1),
+    avatar_url: c.avatar_url || 'https://images.unsplash.com/photo-1557683316-973673baf926?w=100&auto=format&fit=crop&q=80',
+    description: c.description || 'Discussion group on Rovela.',
+    is_joined: c.participant_ids?.includes(currentUser.id) || joinedGroupIds.has(c.id),
+  }));
 
   const filteredMyGroups = myGroups.filter((g) => {
     if (!search.trim()) return true;
@@ -82,9 +63,7 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ onOpenCreateGroup }) => 
   });
 
   const handleJoinDiscoverable = (groupId: string) => {
-    setDiscoverableGroups((prev) =>
-      prev.map((g) => (g.id === groupId ? { ...g, is_joined: true, member_count: g.member_count + 1 } : g))
-    );
+    setJoinedGroupIds((prev) => new Set([...prev, groupId]));
     showToast('Joined group successfully', undefined, 'success');
   };
 

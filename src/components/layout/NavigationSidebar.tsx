@@ -19,6 +19,7 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  Palette,
 } from 'lucide-react';
 
 export const NavigationSidebar: React.FC = () => {

@@ -14,7 +14,6 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
-import { MOCK_USERS } from '../../data/mockData';
 
 interface AddContactModalProps {
   isOpen: boolean;

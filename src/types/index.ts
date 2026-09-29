@@ -60,7 +60,7 @@ export interface SharedMediaItem {
   sender_name?: string;
 }
 
-export type MessageStatus = 'sending' | 'delivered' | 'read' | 'failed';
+export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 export type MessageType =
   | 'text'
   | 'image'
@@ -273,12 +273,14 @@ export interface StatusItem {
   text_content?: string;
   caption?: string;
   background_style?: string; // id of background preset
+  background_color?: string;
+  font_style?: string;
   text_alignment?: 'left' | 'center' | 'right';
   text_size?: 'normal' | 'large' | 'title';
   created_at: string;
   expires_at: string;
-  privacy: StatusPrivacy;
-  viewers: StatusViewerRecord[];
+  privacy?: StatusPrivacy;
+  viewers?: StatusViewerRecord[];
   reactions?: StatusReactionRecord[];
 }
 

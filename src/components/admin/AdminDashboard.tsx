@@ -89,7 +89,7 @@ interface TabGroup {
 }
 
 export const AdminDashboard: React.FC = () => {
-  const { setActiveSection, currentUser, reports, adminMetrics } = useChat();
+  const { setActiveSection, currentUser, reports, adminMetrics, isAdmin } = useChat();
   const { globalSettings, features, impersonatingUser, activeAdminTab, setActiveAdminTab } = useAdmin();
 
   const [tabSearch, setTabSearch] = useState('');
@@ -101,6 +101,29 @@ export const AdminDashboard: React.FC = () => {
 
   const activeTab = activeAdminTab || 'overview';
   const pendingReportsCount = reports.filter((r) => r.status === 'pending').length;
+
+  if (!isAdmin) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[var(--rovela-bg)] text-center select-none">
+        <div className="p-4 rounded-3xl bg-red-500/10 text-red-500 mb-4 border border-red-500/20 shadow-lg">
+          <ShieldAlert className="w-12 h-12" />
+        </div>
+        <h2 className="text-2xl font-extrabold text-[var(--rovela-text-primary)] tracking-tight">
+          Admin Access Restricted
+        </h2>
+        <p className="text-sm text-[var(--rovela-text-secondary)] max-w-md mt-2 mb-6 leading-relaxed">
+          Privileged administrative operations require verified server-side credentials. Your account is not authorized as a Rovela system administrator.
+        </p>
+        <button
+          type="button"
+          onClick={() => setActiveSection('chats')}
+          className="px-6 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-sm transition-all shadow-md active:scale-95 cursor-pointer"
+        >
+          Return to Chats
+        </button>
+      </div>
+    );
+  }
 
   const tabGroups: TabGroup[] = [
     {

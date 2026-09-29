@@ -50,6 +50,7 @@ export const AppShell: React.FC = () => {
   );
   const {
     activeSection,
+    setActiveSection,
     activeConversation,
     activeConversationId,
     setActiveConversationId,

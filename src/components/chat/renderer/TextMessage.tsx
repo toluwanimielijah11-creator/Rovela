@@ -3,6 +3,7 @@ import { Message } from '../../../types';
 import { useChat } from '../../../context/ChatContext';
 import { formatRelativeMessageTime } from '../../../utils/dateUtils';
 import { ReadReceipt } from '../ReadReceipt';
+import { Sparkles, ArrowRight, Palette } from 'lucide-react';
 
 interface TextMessageProps {
   message: Message;
@@ -13,9 +14,24 @@ export const TextMessage: React.FC<TextMessageProps> = ({
   message,
   isCurrentUser,
 }) => {
-  const { editMessage } = useChat();
+  const { editMessage, setActiveSection } = useChat();
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message.content);
+
+  const isDesignLink = message.content.includes('design=') || message.content.includes('collaborative design');
+  const designIdMatch = message.content.match(/design=([a-zA-Z0-9_-]+)/);
+  const designId = designIdMatch ? designIdMatch[1] : null;
+
+  const handleOpenDesign = () => {
+    if (designId) {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('design', designId);
+        window.history.replaceState({}, '', url.toString());
+      } catch {}
+    }
+    setActiveSection('design');
+  };
 
   const handleSaveEdit = () => {
     if (editText.trim() && editText !== message.content) {
@@ -63,6 +79,28 @@ export const TextMessage: React.FC<TextMessageProps> = ({
       } max-w-full`}
     >
       <div className="whitespace-pre-wrap">{message.content}</div>
+
+      {isDesignLink && (
+        <div className="mt-2.5 p-3 rounded-xl bg-black/25 border border-white/15 backdrop-blur-md flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-xs font-bold">
+            <span className="p-1 rounded-lg bg-purple-500 text-white">
+              <Palette className="w-3.5 h-3.5" />
+            </span>
+            <span>Rovela Collaborative Design</span>
+          </div>
+          <p className="text-[11px] opacity-80 leading-snug">
+            Real-time multi-user cursor tracking & live database observers on Supabase.
+          </p>
+          <button
+            type="button"
+            onClick={handleOpenDesign}
+            className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-xs font-bold transition-all active:scale-95 cursor-pointer mt-0.5"
+          >
+            <span>Open Design Canvas</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {(() => {
         const timeObj = formatRelativeMessageTime(message.created_at);

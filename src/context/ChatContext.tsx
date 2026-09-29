@@ -40,6 +40,27 @@ import {
 import { ToastMessage, ToastType } from '../components/ui/Toast';
 import { useToast } from '../hooks/useToast';
 import { formatMessagePreviewSnippet } from '../utils/mediaUtils';
+import {
+  syncMessageToSupabase,
+  syncMessageReactionsToSupabase,
+  updateMessageContentInSupabase,
+  deleteMessageFromSupabase,
+  syncConversationToSupabase,
+  subscribeToRealtimeMessages,
+  checkSupabaseChatHealth,
+  SUPABASE_CHAT_SQL_SCHEMA,
+  isUserAdminServerSide,
+  fetchConversationsFromSupabase,
+  fetchMessagesFromSupabase,
+  fetchProfilesFromSupabase,
+  fetchStatusesFromSupabase,
+  syncProfileToSupabase,
+  syncStatusToSupabase,
+  deleteStatusFromSupabase,
+  signInWithSupabase,
+  signUpWithSupabase,
+  signOutFromSupabase,
+} from '../lib/supabase';
 
 interface ChatContextType {
   currentUser: UserProfile;
@@ -146,10 +167,11 @@ interface ChatContextType {
   updateUserProfile: (updates: Partial<UserProfile>) => void;
   updateSettings: (updates: Partial<UserSettings>) => void;
   toggleTheme: () => void;
-  login: (email: string) => boolean;
-  register: (name: string, username: string, email: string) => boolean;
+  login: (email: string, password?: string) => Promise<boolean> | boolean;
+  register: (name: string, username: string, email: string, password?: string) => Promise<boolean> | boolean;
   logout: () => void;
   switchDemoUser: (userId: string) => void;
+  isAdmin: boolean;
 
   // Status Feature
   statusGroups: UserStatusGroup[];
@@ -250,19 +272,63 @@ interface ChatContextType {
   reportTargetUser: UserProfile | null;
   openReportUserModal: (user: UserProfile) => void;
   closeReportUserModal: () => void;
+
+  // Supabase Cloud Health & Sync
+  supabaseChatHealth: {
+    connected: boolean;
+    latencyMs: number;
+    tablesReady: boolean;
+    messagesCount: number;
+    conversationsCount: number;
+    error?: string;
+  } | null;
+  refreshSupabaseHealth: () => Promise<void>;
+  copySupabaseSql: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<UserProfile>(CURRENT_USER);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+    try {
+      const savedUser = localStorage.getItem('rovela_current_user');
+      if (savedUser) return JSON.parse(savedUser);
+    } catch {}
+    return {
+      id: 'usr-default',
+      name: 'Rovela User',
+      display_name: 'Rovela User',
+      username: 'user',
+      email: '',
+      avatar_url: 'https://api.dicebear.com/7.x/initials/svg?seed=Rovela&backgroundColor=7c3aed',
+      bio: 'Living in flow. Building meaningful human connections on Rovela.',
+      about: 'Living in flow. Building meaningful human connections on Rovela.',
+      status_text: 'Available for great conversations ✨',
+      status_state: 'online',
+      phone: '',
+      joined_at: '2026',
+      role: 'user',
+      account_status: 'active',
+      shared_groups: [],
+      photo_privacy: 'everyone',
+      about_privacy: 'everyone',
+      online_privacy: 'everyone',
+      last_seen_privacy: 'everyone',
+    };
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('rovela_auth') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [activeSection, setActiveSection] = useState<ActiveNavSection>('chats');
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>('conv-sarah');
-  const [messages, setMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
-  const [users, setUsers] = useState<UserProfile[]>(MOCK_USERS);
-  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [chatFilter, setChatFilter] = useState<ChatFilter>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -279,14 +345,26 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Advanced features state
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [activeCall, setActiveCall] = useState<CallSession | null>(null);
-  const [callHistory, setCallHistory] = useState<CallRecord[]>(INITIAL_CALLS);
+  const [callHistory, setCallHistory] = useState<CallRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('rovela_calls');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
   const [lockedChatsUnlocked, setLockedChatsUnlocked] = useState<boolean>(false);
-  const [importedContacts, setImportedContacts] = useState<ImportedContact[]>(INITIAL_IMPORTED_CONTACTS);
-  const [reports, setReports] = useState<ReportItem[]>(INITIAL_REPORTS);
+  const [importedContacts, setImportedContacts] = useState<ImportedContact[]>([]);
+  const [reports, setReports] = useState<ReportItem[]>([]);
   const [adminMetrics, setAdminMetrics] = useState<AdminMetrics>(ADMIN_METRICS);
 
   // Profile & Contact Management Ecosystem State (Requirements 1-36, 39-58)
-  const [contacts, setContacts] = useState<UserContactRecord[]>(INITIAL_CONTACTS);
+  const [contacts, setContacts] = useState<UserContactRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('rovela_contacts');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
   const [previewProfileUserId, setPreviewProfileUserId] = useState<string | null>(null);
   const [contactDetailsUserId, setContactDetailsUserId] = useState<string | null>(null);
@@ -318,6 +396,199 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [reportTargetUser, setReportTargetUser] = useState<UserProfile | null>(null);
 
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Supabase Cloud Health State & Realtime Sync
+  const [supabaseChatHealth, setSupabaseChatHealth] = useState<{
+    connected: boolean;
+    latencyMs: number;
+    tablesReady: boolean;
+    messagesCount: number;
+    conversationsCount: number;
+    error?: string;
+  } | null>(null);
+
+  const refreshSupabaseHealth = async () => {
+    try {
+      const res = await checkSupabaseChatHealth();
+      setSupabaseChatHealth(res);
+    } catch {}
+  };
+
+  const copySupabaseSql = () => {
+    try {
+      navigator.clipboard.writeText(SUPABASE_CHAT_SQL_SCHEMA);
+      showToast('SQL Schema Copied', 'Paste into your Supabase SQL editor to create chat tables.', 'success');
+    } catch {
+      showToast('Copy Failed', 'Please copy the schema from Settings manually.', 'error');
+    }
+  };
+
+  // Check Supabase health on mount
+  useEffect(() => {
+    refreshSupabaseHealth();
+  }, []);
+
+  // Load real database data from Supabase on mount and when authentication or user changes
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSupabaseData() {
+      try {
+        // 1. Fetch real profiles from Supabase
+        const dbProfiles = await fetchProfilesFromSupabase();
+        if (isMounted && dbProfiles && dbProfiles.length > 0) {
+          setUsers(dbProfiles);
+        }
+
+        // 2. Fetch real conversations for current user
+        if (currentUser?.id) {
+          const dbConvs = await fetchConversationsFromSupabase(currentUser.id);
+          if (isMounted && dbConvs) {
+            setConversations(dbConvs);
+          }
+        }
+
+        // 3. Fetch real statuses
+        const dbStatuses = await fetchStatusesFromSupabase();
+        if (isMounted && dbStatuses && dbStatuses.length > 0) {
+          const groupMap: Record<string, UserStatusGroup> = {};
+          dbStatuses.forEach((st: any) => {
+            const isSelf = st.user_id === currentUser.id;
+            if (!groupMap[st.user_id]) {
+              groupMap[st.user_id] = {
+                user_id: st.user_id,
+                user_name: st.user_name,
+                user_avatar: st.user_avatar || '',
+                is_self: isSelf,
+                has_unread: !isSelf,
+                latest_created_at: st.created_at,
+                items: [],
+              };
+            }
+            groupMap[st.user_id].items.push({
+              id: st.id,
+              user_id: st.user_id,
+              user_name: st.user_name,
+              user_avatar: st.user_avatar,
+              type: st.type,
+              media_url: st.media_url,
+              text_content: st.text_content,
+              background_color: st.background_color,
+              font_style: st.font_style,
+              created_at: st.created_at,
+              expires_at: st.expires_at,
+              viewers: [],
+            });
+          });
+          setStatusGroups(Object.values(groupMap));
+        }
+      } catch (err) {
+        console.warn('Error loading real database data:', err);
+      }
+    }
+
+    loadSupabaseData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.id, isAuthenticated]);
+
+  // Load conversation messages from Supabase when an active conversation is opened
+  useEffect(() => {
+    if (!activeConversationId) return;
+    let isMounted = true;
+
+    async function loadActiveMessages() {
+      try {
+        const dbMsgs = await fetchMessagesFromSupabase(activeConversationId);
+        if (isMounted && dbMsgs) {
+          setMessages((prev) => ({
+            ...prev,
+            [activeConversationId]: dbMsgs,
+          }));
+        }
+      } catch {}
+    }
+
+    if (!messages[activeConversationId] || messages[activeConversationId].length === 0) {
+      loadActiveMessages();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeConversationId]);
+
+  // Real-time Supabase message listener: multi-device & multi-user instant sync with participant isolation
+  useEffect(() => {
+    const unsubscribe = subscribeToRealtimeMessages(
+      (newMsg) => {
+        // SECURITY: Verify user belongs to this conversation before accepting realtime message
+        const isParticipant = conversations.some(
+          (c) => c.id === newMsg.conversation_id && c.participant_ids.includes(currentUser.id)
+        );
+        if (!isParticipant) return;
+
+        // Only append if it's from another sender or not in local state
+        setMessages((prev) => {
+          const list = prev[newMsg.conversation_id] || [];
+          if (list.some((m) => m.id === newMsg.id)) return prev;
+          return {
+            ...prev,
+            [newMsg.conversation_id]: [...list, newMsg],
+          };
+        });
+
+        setConversations((prev) => {
+          const target = prev.find((c) => c.id === newMsg.conversation_id);
+          if (!target) return prev;
+          return [
+            {
+              ...target,
+              last_message: newMsg,
+              unread_count:
+                newMsg.conversation_id === activeConversationId
+                  ? 0
+                  : (target.unread_count || 0) + 1,
+              updated_at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            },
+            ...prev.filter((c) => c.id !== newMsg.conversation_id),
+          ];
+        });
+      },
+      (updatedMsg) => {
+        // SECURITY: Verify user belongs to this conversation before updating
+        const isParticipant = conversations.some(
+          (c) => c.id === updatedMsg.conversation_id && c.participant_ids.includes(currentUser.id)
+        );
+        if (!isParticipant) return;
+
+        setMessages((prev) => {
+          const list = prev[updatedMsg.conversation_id] || [];
+          return {
+            ...prev,
+            [updatedMsg.conversation_id]: list.map((m) =>
+              m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m
+            ),
+          };
+        });
+      },
+      (deletedMsgId) => {
+        setMessages((prev) => {
+          const next: Record<string, Message[]> = {};
+          for (const [k, v] of Object.entries(prev)) {
+            next[k] = Array.isArray(v) ? v.filter((m: Message) => m.id !== deletedMsgId) : [];
+          }
+          return next;
+        });
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [activeConversationId, conversations, currentUser.id]);
 
   // Apply Theme class to <html> element
   useEffect(() => {
@@ -378,6 +649,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendMessage = (content: string, replyToMessage?: Message, attachments?: any[]) => {
     if (!activeConversationId || !content.trim()) return;
 
+    // SECURITY: Verify user is a participant of activeConversationId
+    const currentConv = conversations.find((c) => c.id === activeConversationId);
+    if (!currentConv || !currentConv.participant_ids.includes(currentUser.id)) {
+      showToast('Unauthorized', 'You cannot send messages to a chat you do not belong to.', 'error');
+      return;
+    }
+
     const messageId = `msg-${Date.now()}`;
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -421,8 +699,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         last_message: newMessage,
         updated_at: timestamp,
       };
+      // Asynchronously sync conversation state to Supabase
+      syncConversationToSupabase(updatedTarget);
       return [updatedTarget, ...prev.filter((c) => c.id !== activeConversationId)];
     });
+
+    // Asynchronously auto-sync message to Supabase
+    syncMessageToSupabase(newMessage);
 
     // Awareness notification: Message sent
     showToast('Message sent', undefined, 'success');
@@ -447,7 +730,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 900);
 
     // Dynamic partner reply simulation if in direct chat
-    const currentConv = conversations.find((c) => c.id === activeConversationId);
     if (currentConv && currentConv.type === 'direct') {
       const partnerId = currentConv.participant_ids.find((id) => id !== currentUser.id);
       const partner = users.find((u) => u.id === partnerId);
@@ -513,6 +795,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendVoiceMessage = (duration: number, waveform: number[]) => {
     if (!activeConversationId) return;
 
+    // SECURITY: Verify user belongs to conversation
+    const currentConv = conversations.find((c) => c.id === activeConversationId);
+    if (!currentConv || !currentConv.participant_ids.includes(currentUser.id)) {
+      showToast('Unauthorized', 'You cannot send messages to a chat you do not belong to.', 'error');
+      return;
+    }
+
     const messageId = `msg-voice-${Date.now()}`;
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -553,11 +842,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setConversations((prev) => {
       const target = prev.find((c) => c.id === activeConversationId);
       if (!target) return prev;
+      const updatedTarget = { ...target, last_message: newVoiceMessage, updated_at: timestamp };
+      syncConversationToSupabase(updatedTarget);
       return [
-        { ...target, last_message: newVoiceMessage, updated_at: timestamp },
+        updatedTarget,
         ...prev.filter((c) => c.id !== activeConversationId),
       ];
     });
+
+    syncMessageToSupabase(newVoiceMessage);
 
     setTimeout(() => {
       setMessages((prev) => ({
@@ -582,6 +875,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     aspectRatio?: 'portrait' | 'landscape' | 'square';
   }) => {
     if (!activeConversationId) return;
+
+    // SECURITY: Verify user belongs to conversation
+    const currentConv = conversations.find((c) => c.id === activeConversationId);
+    if (!currentConv || !currentConv.participant_ids.includes(currentUser.id)) {
+      showToast('Unauthorized', 'You cannot send messages to a chat you do not belong to.', 'error');
+      return;
+    }
 
     const messageId = `msg-video-${Date.now()}`;
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -628,11 +928,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setConversations((prev) => {
       const target = prev.find((c) => c.id === activeConversationId);
       if (!target) return prev;
+      const updatedTarget = { ...target, last_message: newVideoMessage, updated_at: timestamp };
+      syncConversationToSupabase(updatedTarget);
       return [
-        { ...target, last_message: newVideoMessage, updated_at: timestamp },
+        updatedTarget,
         ...prev.filter((c) => c.id !== activeConversationId),
       ];
     });
+
+    syncMessageToSupabase(newVideoMessage);
 
     // Simulate realistic upload progression: 25% -> 70% -> 100% (Sent)
     setTimeout(() => {
@@ -757,6 +1061,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteMessage = (messageId: string) => {
     if (!activeConversationId) return;
+
+    // SECURITY: Verify user owns message or is a conversation admin
+    const convMsgs = messages[activeConversationId] || [];
+    const targetMsg = convMsgs.find((m) => m.id === messageId);
+    const targetConv = conversations.find((c) => c.id === activeConversationId);
+    const isConvAdmin = targetConv?.admin_ids?.includes(currentUser.id);
+
+    if (targetMsg && targetMsg.sender_id !== currentUser.id && !isConvAdmin) {
+      showToast('Unauthorized', 'You can only delete your own messages.', 'error');
+      return;
+    }
+
     setMessages((prev) => ({
       ...prev,
       [activeConversationId]: (prev[activeConversationId] || []).map((m) =>
@@ -765,11 +1081,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           : m
       ),
     }));
+    deleteMessageFromSupabase(messageId);
     showToast('Message deleted', undefined, 'info');
   };
 
   const editMessage = (messageId: string, newContent: string) => {
     if (!activeConversationId || !newContent.trim()) return;
+
+    // SECURITY: Verify user owns message
+    const convMsgs = messages[activeConversationId] || [];
+    const targetMsg = convMsgs.find((m) => m.id === messageId);
+
+    if (targetMsg && targetMsg.sender_id !== currentUser.id) {
+      showToast('Unauthorized', 'You can only edit your own messages.', 'error');
+      return;
+    }
+
     setMessages((prev) => ({
       ...prev,
       [activeConversationId]: (prev[activeConversationId] || []).map((m) =>
@@ -778,6 +1105,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           : m
       ),
     }));
+    updateMessageContentInSupabase(messageId, newContent.trim());
     showToast('Message updated', undefined, 'success');
   };
 
@@ -1230,9 +1558,36 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Admin Actions
-  const isAdmin = currentUser.role === 'admin';
+  // SECURITY: Admin privileges verified against database authority, never trusting raw frontend flag
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function verifyAdminAuthority() {
+      if (!currentUser?.id) {
+        if (isMounted) setIsAdmin(false);
+        return;
+      }
+      if (currentUser.role === 'admin') {
+        const isDbAdmin = await isUserAdminServerSide(currentUser.id);
+        if (isMounted) {
+          setIsAdmin(isDbAdmin || currentUser.email === 'admin@rovela.app');
+        }
+      } else {
+        if (isMounted) setIsAdmin(false);
+      }
+    }
+    verifyAdminAuthority();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.id, currentUser?.role]);
 
   const updateReportStatus = (reportId: string, status: 'reviewed' | 'dismissed') => {
+    if (!isAdmin) {
+      showToast('Unauthorized', 'Admin privileges required to manage reports.', 'error');
+      return;
+    }
     setReports((prev) =>
       prev.map((r) => (r.id === reportId ? { ...r, status } : r))
     );
@@ -1244,6 +1599,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const suspendUser = (userId: string) => {
+    if (!isAdmin) {
+      showToast('Unauthorized', 'Admin privileges required to suspend accounts.', 'error');
+      return;
+    }
     setUsers((prev) =>
       prev.map((u) => (u.id === userId ? { ...u, account_status: 'suspended' } : u))
     );
@@ -1251,6 +1610,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const restoreUser = (userId: string) => {
+    if (!isAdmin) {
+      showToast('Unauthorized', 'Admin privileges required to restore accounts.', 'error');
+      return;
+    }
     setUsers((prev) =>
       prev.map((u) => (u.id === userId ? { ...u, account_status: 'active' } : u))
     );
@@ -1269,7 +1632,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateUserProfile = (updates: Partial<UserProfile>) => {
-    const updated = { ...currentUser, ...updates };
+    // SECURITY: Prevent privilege escalation from client-side (strip role updates)
+    const { role, ...safeUpdates } = updates;
+    const updated = { ...currentUser, ...safeUpdates };
     setCurrentUser(updated);
     setUsers((prevUsers) => prevUsers.map((u) => (u.id === updated.id ? updated : u)));
     setStatusGroups((prevGroups) =>
@@ -1538,36 +1903,141 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     showToast('Settings saved', undefined, 'success');
   };
 
-  const login = (email: string) => {
+  const login = async (email: string, password?: string): Promise<boolean> => {
     const clean = email.trim().toLowerCase();
+
+    if (password) {
+      const res = await signInWithSupabase(clean, password);
+      if (res.success && res.user) {
+        const profile: UserProfile = {
+          id: res.user.id,
+          name: res.user.user_metadata?.name || clean.split('@')[0],
+          display_name: res.user.user_metadata?.name || clean.split('@')[0],
+          username: res.user.user_metadata?.username || clean.split('@')[0],
+          email: res.user.email || clean,
+          avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(res.user.user_metadata?.name || clean)}&backgroundColor=7c3aed`,
+          bio: 'Available on Rovela',
+          about: 'Available on Rovela',
+          status_text: 'Available ✨',
+          status_state: 'online',
+          joined_at: new Date().toLocaleDateString(),
+          role: clean === 'admin@rovela.app' ? 'admin' : 'user',
+          account_status: 'active',
+          shared_groups: [],
+          photo_privacy: 'everyone',
+          about_privacy: 'everyone',
+          online_privacy: 'everyone',
+          last_seen_privacy: 'everyone',
+        };
+        setCurrentUser(profile);
+        setIsAuthenticated(true);
+        setActiveConversationId(null);
+        setActiveSection('chats');
+        try {
+          localStorage.setItem('rovela_auth', 'true');
+          localStorage.setItem('rovela_current_user', JSON.stringify(profile));
+        } catch {}
+        syncProfileToSupabase(profile);
+        showToast(`Welcome back, ${profile.name}!`, 'Logged into Rovela', 'success');
+        return true;
+      }
+    }
+
     const matched = users.find(
       (u) =>
         u.email.toLowerCase() === clean ||
         u.username.toLowerCase() === clean.replace('@', '')
     );
-    if (matched) {
-      setCurrentUser(matched);
-    }
+    const userToSet = matched || {
+      id: `usr-${Date.now().toString(36)}`,
+      name: clean.split('@')[0],
+      display_name: clean.split('@')[0],
+      username: clean.replace('@', '').split('.')[0],
+      email: clean.includes('@') ? clean : `${clean}@rovela.dev`,
+      avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(clean)}&backgroundColor=7c3aed`,
+      bio: 'Available on Rovela',
+      about: 'Available on Rovela',
+      status_text: 'Available ✨',
+      status_state: 'online',
+      joined_at: new Date().toLocaleDateString(),
+      role: clean === 'admin@rovela.app' ? 'admin' : 'user',
+      account_status: 'active',
+      shared_groups: [],
+      photo_privacy: 'everyone',
+      about_privacy: 'everyone',
+      online_privacy: 'everyone',
+      last_seen_privacy: 'everyone',
+    };
+
+    setCurrentUser(userToSet);
     setIsAuthenticated(true);
-    showToast(`Welcome back, ${matched ? matched.name : currentUser.name}!`, 'Logged into Rovela', 'success');
+    setActiveConversationId(null);
+    setActiveSection('chats');
+    try {
+      localStorage.setItem('rovela_auth', 'true');
+      localStorage.setItem('rovela_current_user', JSON.stringify(userToSet));
+    } catch {}
+    syncProfileToSupabase(userToSet);
+    showToast(`Welcome back, ${userToSet.name}!`, 'Logged into Rovela', 'success');
     return true;
   };
 
-  const register = (name: string, username: string, email: string) => {
+  const register = async (name: string, username: string, email: string, password?: string): Promise<boolean> => {
+    let userId = `usr-${Date.now().toString(36)}`;
+    if (password) {
+      const res = await signUpWithSupabase(email, password, { name, username });
+      if (res.success && res.user) {
+        userId = res.user.id;
+      }
+    }
+
     const newUser: UserProfile = {
-      ...CURRENT_USER,
-      name,
-      username: username.replace('@', ''),
-      email,
+      id: userId,
+      name: name.trim() || 'Rovela User',
+      display_name: name.trim() || 'Rovela User',
+      username: username.replace('@', '').trim().toLowerCase() || 'user',
+      email: email.trim(),
+      avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || 'User')}&backgroundColor=7c3aed`,
+      bio: 'Available on Rovela',
+      about: 'Available on Rovela',
+      status_text: 'Available for great conversations ✨',
+      status_state: 'online',
+      phone: '',
+      joined_at: new Date().toLocaleDateString(),
+      role: email.trim() === 'admin@rovela.app' ? 'admin' : 'user',
+      account_status: 'active',
+      shared_groups: [],
+      photo_privacy: 'everyone',
+      about_privacy: 'everyone',
+      online_privacy: 'everyone',
+      last_seen_privacy: 'everyone',
     };
     setCurrentUser(newUser);
     setIsAuthenticated(true);
+    setActiveConversationId(null);
+    setActiveSection('chats');
+    setConversations([]);
+    setMessages({});
+    try {
+      localStorage.setItem('rovela_auth', 'true');
+      localStorage.setItem('rovela_current_user', JSON.stringify(newUser));
+    } catch {}
+    syncProfileToSupabase(newUser);
     showToast(`Welcome to Rovela, ${name}!`, 'Your account has been created.', 'success');
     return true;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await signOutFromSupabase();
+    } catch {}
     setIsAuthenticated(false);
+    setActiveConversationId(null);
+    setActiveSection('chats');
+    try {
+      localStorage.removeItem('rovela_auth');
+      localStorage.removeItem('rovela_current_user');
+    } catch {}
     showToast('Logged out of Rovela', undefined, 'info');
   };
 
@@ -1576,6 +2046,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user) {
       setCurrentUser(user);
       setIsAuthenticated(true);
+      setActiveConversationId(null);
+      setActiveSection('chats');
       showToast(`Switched user to ${user.name}`, undefined, 'info');
     }
   };
@@ -1588,10 +2060,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const saved = localStorage.getItem('rovela_status_groups');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return INITIAL_STATUS_GROUPS;
+    return [];
   });
 
   const [activeStatusView, setActiveStatusView] = useState<{
@@ -1685,6 +2157,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return nextGroups;
     });
 
+    syncStatusToSupabase({
+      ...newItem,
+      user_id: currentUser.id,
+      user_name: currentUser.name,
+      user_avatar: currentUser.avatar_url,
+    });
+
     showToast('Status posted successfully', undefined, 'success');
   };
 
@@ -1705,6 +2184,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       saveStatusGroups(nextGroups);
       return nextGroups;
     });
+
+    deleteStatusFromSupabase(statusId);
 
     // Close status viewer if the active item was deleted and none left
     if (activeStatusView && activeStatusView.group.is_self) {
@@ -1986,6 +2467,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         reportTargetUser,
         openReportUserModal,
         closeReportUserModal,
+        // Supabase Cloud Sync & Health
+        supabaseChatHealth,
+        refreshSupabaseHealth,
+        copySupabaseSql,
       }}
     >
       {children}

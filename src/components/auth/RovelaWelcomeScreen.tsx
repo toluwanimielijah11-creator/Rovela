@@ -36,8 +36,8 @@ export const RovelaWelcomeScreen: React.FC<RovelaWelcomeScreenProps> = ({
   const isDarkMode = settings.theme === 'dark';
 
   // Sign-in Form States
-  const [identifier, setIdentifier] = useState('alex.rivers@rovela.dev');
-  const [password, setPassword] = useState('Rovela2026!#');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -67,29 +67,28 @@ export const RovelaWelcomeScreen: React.FC<RovelaWelcomeScreenProps> = ({
 
     setIsLoading(true);
 
-    // Simulate authenticating into existing Rovela system
-    setTimeout(() => {
-      try {
-        const success = login(identifier.trim());
-        if (success) {
-          if (onLoginSuccess) onLoginSuccess();
-        } else {
-          setErrorMessage('Unable to sign in. Check your details and try again.');
-          setIsLoading(false);
-        }
-      } catch {
-        setErrorMessage('Unable to sign in. Check your details and try again.');
+    try {
+      const success = await login(identifier.trim(), password);
+      if (success) {
+        if (onLoginSuccess) onLoginSuccess();
+      } else {
+        setErrorMessage('Invalid credentials. Check your email/username and password.');
         setIsLoading(false);
       }
-    }, 600);
+    } catch {
+      setErrorMessage('Unable to sign in. Please verify your connection and try again.');
+      setIsLoading(false);
+    }
   };
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      login('alex.rivers@rovela.dev');
+    try {
+      await login(identifier.trim() || 'user@rovela.app');
       if (onLoginSuccess) onLoginSuccess();
-    }, 450);
+    } catch {
+      setIsLoading(false);
+    }
   };
 
   const handleDemoUserSelect = (email: string) => {
@@ -248,33 +247,6 @@ export const RovelaWelcomeScreen: React.FC<RovelaWelcomeScreenProps> = ({
                 <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                   Sign in to continue to Rovela.
                 </p>
-                <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-200/60 dark:border-white/[0.08]">
-                  <span className="text-[11px] font-semibold text-slate-400">Quick demo:</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIdentifier('alex.rivers@rovela.dev');
-                      setPassword('Rovela2026!#');
-                      login('alex.rivers@rovela.dev');
-                      if (onLoginSuccess) onLoginSuccess();
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-300 hover:bg-purple-500/25 text-[11px] font-bold transition-all cursor-pointer"
-                  >
-                    Alex (Admin)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIdentifier('sarah.chen@rovela.dev');
-                      setPassword('Rovela2026!#');
-                      login('sarah.chen@rovela.dev');
-                      if (onLoginSuccess) onLoginSuccess();
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-300/80 dark:hover:bg-white/15 text-[11px] font-bold transition-all cursor-pointer"
-                  >
-                    Sarah (User)
-                  </button>
-                </div>
               </div>
 
               {/* 16. Semantic Inline Error Banner */}

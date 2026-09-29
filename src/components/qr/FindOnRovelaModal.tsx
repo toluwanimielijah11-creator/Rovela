@@ -12,7 +12,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
-import { MOCK_USERS } from '../../data/mockData';
 
 interface FindOnRovelaModalProps {
   isOpen: boolean;
@@ -27,6 +26,7 @@ export const FindOnRovelaModal: React.FC<FindOnRovelaModalProps> = ({
 }) => {
   const {
     currentUser,
+    users,
     contacts,
     openUserProfile,
     openAddContact,
@@ -38,20 +38,19 @@ export const FindOnRovelaModal: React.FC<FindOnRovelaModalProps> = ({
 
   const cleanQuery = query.replace('@', '').toLowerCase().trim();
 
-  // Search through all available Rovela users
+  // Search through all available Rovela users from database
   const searchResults = useMemo(() => {
     if (!cleanQuery) {
-      // Suggest some users to discover
-      return MOCK_USERS.filter((u) => u.id !== currentUser.id).slice(0, 4);
+      return users.filter((u) => u.id !== currentUser.id).slice(0, 4);
     }
-    return MOCK_USERS.filter(
+    return users.filter(
       (u) =>
         u.id !== currentUser.id &&
         (u.username.toLowerCase().includes(cleanQuery) ||
           u.name.toLowerCase().includes(cleanQuery) ||
           (u.email && u.email.toLowerCase().includes(cleanQuery)))
     );
-  }, [cleanQuery, currentUser.id]);
+  }, [cleanQuery, currentUser.id, users]);
 
   if (!isOpen) return null;
 

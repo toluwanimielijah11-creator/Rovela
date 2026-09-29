@@ -44,33 +44,33 @@ export const RovelaAuthJourney: React.FC<RovelaAuthJourneyProps> = ({
 
   // Form states
   // Screen 2: Registration
-  const [regFullName, setRegFullName] = useState('John Doe');
-  const [regUsername, setRegUsername] = useState('johndoe');
-  const [regEmailOrPhone, setRegEmailOrPhone] = useState('john@example.com');
-  const [regPassword, setRegPassword] = useState('Rovela2026!#');
+  const [regFullName, setRegFullName] = useState('');
+  const [regUsername, setRegUsername] = useState('');
+  const [regEmailOrPhone, setRegEmailOrPhone] = useState('');
+  const [regPassword, setRegPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   // Screen 3: Verification
-  const [otpDigits, setOtpDigits] = useState(['5', '2', '9', '', '', '']);
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const [verifyCountdown, setVerifyCountdown] = useState(42);
 
   // Screen 4: Profile
-  const [profileName, setProfileName] = useState('John Doe');
-  const [profileUsername, setProfileUsername] = useState('johndoe');
+  const [profileName, setProfileName] = useState('');
+  const [profileUsername, setProfileUsername] = useState('');
   const [profileAbout, setProfileAbout] = useState('Connecting on Rovela ✨');
   const [profileAvatar, setProfileAvatar] = useState(
     'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80'
   );
 
   // Screen 5: PIN
-  const [pinDigits, setPinDigits] = useState<string[]>(['1', '2', '3', '4', '', '']);
+  const [pinDigits, setPinDigits] = useState<string[]>(['', '', '', '', '', '']);
 
   // Screen 6: Biometrics
   const [biometricEnabled, setBiometricEnabled] = useState(true);
 
   // Screen 17: Login
-  const [loginIdentifier, setLoginIdentifier] = useState('john@example.com');
-  const [loginPassword, setLoginPassword] = useState('password123');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginRememberMe, setLoginRememberMe] = useState(true);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
@@ -112,8 +112,8 @@ export const RovelaAuthJourney: React.FC<RovelaAuthJourneyProps> = ({
     }
   };
 
-  const finishAuthAndEnter = () => {
-    register(profileName, profileUsername, regEmailOrPhone);
+  const finishAuthAndEnter = async () => {
+    await register(profileName || regFullName, profileUsername || regUsername, regEmailOrPhone, regPassword);
     updateUserProfile({
       bio: profileAbout,
       avatar_url: profileAvatar,
@@ -143,48 +143,18 @@ export const RovelaAuthJourney: React.FC<RovelaAuthJourneyProps> = ({
       <div className="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[450px] bg-gradient-to-b from-purple-700/25 via-violet-900/10 to-transparent blur-[100px]" />
       <div className="pointer-events-none fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-xl h-[300px] bg-gradient-to-t from-purple-900/20 to-transparent blur-[120px]" />
 
-      {/* Screen Quick-Navigation Header / Debug Strip */}
-      <div className="relative z-20 w-full max-w-md mx-auto px-4 pt-3 flex items-center justify-between text-[11px] text-slate-400">
-        <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
-          <span className="text-purple-400 font-bold uppercase tracking-wider text-[10px] mr-1">
-            Reference Screens:
-          </span>
-          {(
-            [
-              { id: 'welcome', label: '1. Welcome' },
-              { id: 'register', label: '2. Register' },
-              { id: 'verify', label: '3. Verify' },
-              { id: 'profile', label: '4. Profile' },
-              { id: 'pin', label: '5. PIN' },
-              { id: 'biometric', label: '6. Biometric' },
-              { id: 'login', label: '17. Login' },
-            ] as const
-          ).map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setCurrentScreen(s.id)}
-              className={`px-2 py-0.5 rounded-full cursor-pointer transition-all ${
-                currentScreen === s.id
-                  ? 'bg-purple-600 text-white font-bold shadow-sm'
-                  : 'bg-white/5 hover:bg-white/10 text-slate-400'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-
-        {onCancel && (
+      {/* Minimal Header */}
+      {onCancel && (
+        <div className="relative z-20 w-full max-w-md mx-auto px-4 pt-3 flex items-center justify-end">
           <button
             type="button"
             onClick={onCancel}
-            className="ml-2 text-slate-400 hover:text-white text-xs font-semibold"
+            className="text-slate-400 hover:text-white text-xs font-semibold cursor-pointer"
           >
             Close
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Main Screen Content Container */}
       <div className="relative z-10 flex-1 flex flex-col justify-center items-center p-4 sm:p-6 w-full max-w-md mx-auto">
